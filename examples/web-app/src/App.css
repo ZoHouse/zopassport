@@ -1,0 +1,31 @@
+#root {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem;
+  text-align: center;
+}
+
+.app-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+}
+
+.card-container {
+  background: #1a1a1a;
+  padding: 2rem;
+  border-radius: 1rem;
+  width: 100%;
+  max-width: 500px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.wallet-screen-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: black;
+}

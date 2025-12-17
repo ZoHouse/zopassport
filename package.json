@@ -1,0 +1,92 @@
+{
+  "name": "zopassport",
+  "version": "0.1.0",
+  "description": "Zo Passport SDK - Phone to Avatar to Passport. Complete authentication and onboarding flow for Zo World.",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    },
+    "./react": {
+      "types": "./dist/react.d.ts",
+      "import": "./dist/react.mjs",
+      "require": "./dist/react.js"
+    },
+    "./react-native": {
+      "types": "./dist/react-native.d.ts",
+      "import": "./dist/react-native.mjs",
+      "require": "./dist/react-native.js"
+    },
+    "./assets": {
+      "types": "./dist/assets/index.d.ts",
+      "import": "./dist/assets/index.mjs",
+      "require": "./dist/assets/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "assets",
+    "scripts",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "type-check": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "bin": {
+    "create-zopassport": "./scripts/init.js"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "moment": "^2.30.1"
+  },
+  "peerDependencies": {
+    "react": ">=17.0.0",
+    "react-dom": ">=17.0.0",
+    "react-native": ">=0.70.0",
+    "react-native-reanimated": ">=3.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    },
+    "react-native": {
+      "optional": true
+    },
+    "react-native-reanimated": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.27",
+    "@types/react-dom": "^18.3.7",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-native": "^0.74.0",
+    "react-native-reanimated": "^4.2.0",
+    "react-native-svg": "^15.15.1",
+    "tsup": "^8.0.0",
+    "typescript": "^5.0.0"
+  },
+  "keywords": [
+    "zo",
+    "zo-world",
+    "passport",
+    "authentication",
+    "avatar",
+    "phone-auth",
+    "otp",
+    "sdk"
+  ],
+  "author": "Zo World Team",
+  "license": "MIT"
+}

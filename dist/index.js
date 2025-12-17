@@ -1,0 +1,1118 @@
+"use strict";
+var __create = Object.create;
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __getProtoOf = Object.getPrototypeOf;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+  // If the importer is in node compatibility mode or this is not an ESM
+  // file that has been converted to a CommonJS file using a Babel-
+  // compatible transform (i.e. "__esModule" has not been set), then set
+  // "default" to the CommonJS "module.exports" for node compatibility.
+  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+  mod
+));
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+
+// src/index.ts
+var index_exports = {};
+__export(index_exports, {
+  ASSETS: () => ASSETS,
+  AsyncStorageAdapter: () => AsyncStorageAdapter,
+  COUNTRY_CODES: () => COUNTRY_CODES,
+  CULTURES: () => CULTURES,
+  CULTURE_STICKERS: () => CULTURE_STICKERS,
+  LocalStorageAdapter: () => LocalStorageAdapter,
+  STORAGE_KEYS: () => STORAGE_KEYS,
+  ZoApiClient: () => ZoApiClient,
+  ZoAuth: () => ZoAuth,
+  ZoAvatar: () => ZoAvatar,
+  ZoPassportSDK: () => ZoPassportSDK,
+  ZoProfile: () => ZoProfile,
+  ZoWallet: () => ZoWallet,
+  formatBalance: () => formatBalance,
+  formatBalanceShort: () => formatBalanceShort,
+  formatNickname: () => formatNickname,
+  formatPhoneNumber: () => formatPhoneNumber,
+  formatTransactionAmount: () => formatTransactionAmount,
+  formatWalletAddress: () => formatWalletAddress,
+  getTransactionColor: () => getTransactionColor,
+  logger: () => logger,
+  parsePhoneNumber: () => parsePhoneNumber
+});
+module.exports = __toCommonJS(index_exports);
+
+// src/lib/api/client.ts
+var import_axios = __toESM(require("axios"));
+
+// src/lib/utils/logger.ts
+var LOG_LEVELS = {
+  debug: 0,
+  info: 1,
+  warn: 2,
+  error: 3,
+  none: 4
+};
+var Logger = class {
+  constructor() {
+    this.config = {
+      enabled: false,
+      level: "warn",
+      prefix: "[ZoPassport]"
+    };
+  }
+  /**
+   * Configure the logger
+   * @param options - Logger configuration
+   */
+  configure(options) {
+    this.config = { ...this.config, ...options };
+  }
+  /**
+   * Enable debug logging
+   */
+  enable() {
+    this.config.enabled = true;
+  }
+  /**
+   * Disable all logging
+   */
+  disable() {
+    this.config.enabled = false;
+  }
+  /**
+   * Set log level
+   */
+  setLevel(level) {
+    this.config.level = level;
+  }
+  shouldLog(level) {
+    if (!this.config.enabled) return false;
+    return LOG_LEVELS[level] >= LOG_LEVELS[this.config.level];
+  }
+  debug(...args) {
+    if (this.shouldLog("debug")) {
+      console.log(this.config.prefix, ...args);
+    }
+  }
+  info(...args) {
+    if (this.shouldLog("info")) {
+      console.info(this.config.prefix, ...args);
+    }
+  }
+  warn(...args) {
+    if (this.shouldLog("warn")) {
+      console.warn(this.config.prefix, ...args);
+    }
+  }
+  error(...args) {
+    if (this.shouldLog("error")) {
+      console.error(this.config.prefix, ...args);
+    }
+  }
+};
+var logger = new Logger();
+
+// src/lib/utils/storage.ts
+var STORAGE_KEYS = {
+  ACCESS_TOKEN: "zo_access_token",
+  REFRESH_TOKEN: "zo_refresh_token",
+  TOKEN_EXPIRY: "zo_token_expiry",
+  REFRESH_EXPIRY: "zo_refresh_expiry",
+  USER: "zo_user",
+  CLIENT_DEVICE_ID: "zo_device_id",
+  CLIENT_DEVICE_SECRET: "zo_device_secret",
+  AVATAR_URL: "zo_avatar_url",
+  NICKNAME: "zo_nickname",
+  CITY: "zo_city",
+  BODY_TYPE: "zo_body_type"
+};
+var LocalStorageAdapter = class {
+  async getItem(key) {
+    if (typeof window === "undefined") return null;
+    try {
+      return localStorage.getItem(key);
+    } catch (error) {
+      logger.warn(`LocalStorage.getItem failed for key "${key}":`, error);
+      return null;
+    }
+  }
+  async setItem(key, value) {
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.setItem(key, value);
+    } catch (error) {
+      logger.warn(`LocalStorage.setItem failed for key "${key}":`, error);
+    }
+  }
+  async removeItem(key) {
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.removeItem(key);
+    } catch (error) {
+      logger.warn(`LocalStorage.removeItem failed for key "${key}":`, error);
+    }
+  }
+};
+var AsyncStorageAdapter = class {
+  constructor(asyncStorage) {
+    this.storage = asyncStorage;
+  }
+  async getItem(key) {
+    try {
+      return await this.storage.getItem(key);
+    } catch (error) {
+      logger.warn(`AsyncStorage.getItem failed for key "${key}":`, error);
+      return null;
+    }
+  }
+  async setItem(key, value) {
+    try {
+      await this.storage.setItem(key, value);
+    } catch (error) {
+      logger.warn(`AsyncStorage.setItem failed for key "${key}":`, error);
+    }
+  }
+  async removeItem(key) {
+    try {
+      await this.storage.removeItem(key);
+    } catch (error) {
+      logger.warn(`AsyncStorage.removeItem failed for key "${key}":`, error);
+    }
+  }
+};
+
+// src/lib/api/client.ts
+function generateDeviceCredentials() {
+  const deviceId = `web-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+  const deviceSecret = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+  return { deviceId, deviceSecret };
+}
+var ZoApiClient = class {
+  constructor(config) {
+    this.config = config;
+    this.storage = config.storageAdapter || new LocalStorageAdapter();
+    this.client = import_axios.default.create({
+      baseURL: config.baseUrl || "https://api.io.zo.xyz",
+      timeout: config.timeout || 1e4,
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      }
+    });
+    this.setupInterceptors();
+  }
+  async setupInterceptors() {
+    this.client.interceptors.request.use(async (config) => {
+      config.headers["client-key"] = this.config.clientKey;
+      const credentials = await this.getOrCreateDeviceCredentials();
+      config.headers["client-device-id"] = credentials.deviceId;
+      config.headers["client-device-secret"] = credentials.deviceSecret;
+      const token = await this.storage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+      if (token) {
+        config.headers["Authorization"] = `Bearer ${token}`;
+      }
+      return config;
+    });
+    this.client.interceptors.response.use(
+      (response) => response,
+      async (error) => {
+        const originalRequest = error.config;
+        if (error.response?.status === 401 && !originalRequest._retry) {
+          originalRequest._retry = true;
+          const refreshToken = await this.storage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
+          if (refreshToken) {
+            try {
+              const response = await this.client.post("/api/v1/auth/token/refresh/", {
+                refresh_token: refreshToken
+              });
+              if (response.data?.access) {
+                await this.storage.setItem(STORAGE_KEYS.ACCESS_TOKEN, response.data.access);
+                if (response.data.refresh) {
+                  await this.storage.setItem(STORAGE_KEYS.REFRESH_TOKEN, response.data.refresh);
+                }
+                originalRequest.headers["Authorization"] = `Bearer ${response.data.access}`;
+                return this.client(originalRequest);
+              }
+            } catch (refreshError) {
+              await this.storage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
+              await this.storage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
+            }
+          }
+        }
+        return Promise.reject(error);
+      }
+    );
+  }
+  async getOrCreateDeviceCredentials() {
+    const storedId = await this.storage.getItem(STORAGE_KEYS.CLIENT_DEVICE_ID);
+    const storedSecret = await this.storage.getItem(STORAGE_KEYS.CLIENT_DEVICE_SECRET);
+    if (storedId && storedSecret) {
+      return { deviceId: storedId, deviceSecret: storedSecret };
+    }
+    const credentials = generateDeviceCredentials();
+    await this.storage.setItem(STORAGE_KEYS.CLIENT_DEVICE_ID, credentials.deviceId);
+    await this.storage.setItem(STORAGE_KEYS.CLIENT_DEVICE_SECRET, credentials.deviceSecret);
+    return credentials;
+  }
+  get axiosInstance() {
+    return this.client;
+  }
+  getStorage() {
+    return this.storage;
+  }
+};
+
+// src/lib/api/auth.ts
+var ZoAuth = class {
+  constructor(client) {
+    this.client = client;
+  }
+  /**
+   * Send OTP to phone number
+   * Step 1 of ZO phone authentication
+   */
+  async sendOTP(countryCode, phoneNumber) {
+    try {
+      const payload = {
+        mobile_country_code: countryCode,
+        mobile_number: phoneNumber,
+        message_channel: ""
+        // Empty string as per ZO API spec
+      };
+      const response = await this.client.axiosInstance.post(
+        "/api/v1/auth/login/mobile/otp/",
+        payload
+      );
+      if (response.status >= 200 && response.status < 300) {
+        return {
+          success: true,
+          message: response.data?.message || "OTP sent successfully"
+        };
+      }
+      return {
+        success: false,
+        message: response.data?.message || `Unexpected status: ${response.status}`
+      };
+    } catch (error) {
+      const errorData = error.response?.data;
+      const errorMessage = errorData?.detail || errorData?.message || errorData?.error || error.message || "Failed to send OTP";
+      return {
+        success: false,
+        message: errorMessage
+      };
+    }
+  }
+  /**
+   * Verify OTP and authenticate user
+   * Step 2 of ZO phone authentication
+   * Returns full auth response with tokens and user profile
+   */
+  async verifyOTP(countryCode, phoneNumber, otp) {
+    try {
+      const payload = {
+        mobile_country_code: countryCode,
+        mobile_number: phoneNumber,
+        otp
+      };
+      const response = await this.client.axiosInstance.post(
+        "/api/v1/auth/login/mobile/",
+        payload
+      );
+      let responseData;
+      if (typeof response.data === "string") {
+        try {
+          responseData = JSON.parse(response.data);
+        } catch {
+          return {
+            success: false,
+            error: "Invalid response format from authentication service"
+          };
+        }
+      } else {
+        responseData = response.data;
+      }
+      if (!responseData || !responseData.user || !responseData.access_token) {
+        return {
+          success: false,
+          error: "Invalid response structure from authentication service"
+        };
+      }
+      return {
+        success: true,
+        data: responseData
+      };
+    } catch (error) {
+      const errorMessage = this.extractErrorMessage(error);
+      return {
+        success: false,
+        error: errorMessage
+      };
+    }
+  }
+  /**
+   * Refresh access token using refresh token
+   */
+  async refreshAccessToken(refreshToken) {
+    try {
+      const response = await this.client.axiosInstance.post("/api/v1/auth/token/refresh/", {
+        refresh_token: refreshToken
+      });
+      return {
+        success: true,
+        tokens: response.data
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: "Failed to refresh authentication"
+      };
+    }
+  }
+  /**
+   * Check if user is authenticated
+   */
+  async checkLoginStatus(accessToken) {
+    try {
+      const response = await this.client.axiosInstance.get("/api/v1/auth/login/check/", {
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        }
+      });
+      return {
+        success: true,
+        isAuthenticated: response.data.authenticated === true
+      };
+    } catch {
+      return {
+        success: false,
+        isAuthenticated: false
+      };
+    }
+  }
+  /**
+   * Extract error message from various ZO API error formats
+   */
+  extractErrorMessage(error) {
+    const errorData = error.response?.data;
+    if (errorData) {
+      if (errorData.errors && Array.isArray(errorData.errors)) {
+        return errorData.errors[0] || "Invalid OTP";
+      }
+      if (errorData.detail) return errorData.detail;
+      if (errorData.message) return errorData.message;
+      if (errorData.error) return errorData.error;
+    }
+    return "Authentication failed";
+  }
+};
+
+// src/lib/api/profile.ts
+var ZoProfile = class {
+  constructor(client) {
+    this.client = client;
+  }
+  /**
+   * Get user profile
+   */
+  async getProfile(accessToken) {
+    try {
+      const response = await this.client.axiosInstance.get(
+        "/api/v1/profile/me/",
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`
+          }
+        }
+      );
+      return {
+        success: true,
+        profile: response.data
+      };
+    } catch (error) {
+      const errorData = error.response?.data;
+      return {
+        success: false,
+        error: errorData?.detail || errorData?.message || "Failed to fetch profile"
+      };
+    }
+  }
+  /**
+   * Update user profile (partial updates supported)
+   */
+  async updateProfile(accessToken, updates) {
+    try {
+      const response = await this.client.axiosInstance.post(
+        "/api/v1/profile/me/",
+        updates,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`
+          }
+        }
+      );
+      return {
+        success: true,
+        profile: response.data
+      };
+    } catch (error) {
+      const errorData = error.response?.data;
+      return {
+        success: false,
+        error: errorData?.detail || errorData?.message || "Failed to update profile"
+      };
+    }
+  }
+};
+
+// src/lib/api/avatar.ts
+var ZoAvatar = class {
+  constructor(client) {
+    this.client = client;
+  }
+  /**
+   * Generate avatar for user
+   */
+  async generateAvatar(accessToken, bodyType) {
+    try {
+      const payload = {
+        body_type: bodyType
+      };
+      const response = await this.client.axiosInstance.post(
+        "/api/v1/avatar/generate/",
+        payload,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`
+          }
+        }
+      );
+      return {
+        success: true,
+        task_id: response.data.task_id,
+        status: response.data.status
+      };
+    } catch (error) {
+      const errorData = error.response?.data;
+      return {
+        success: false,
+        error: errorData?.detail || errorData?.message || "Failed to generate avatar"
+      };
+    }
+  }
+  /**
+   * Check avatar generation status
+   */
+  async getAvatarStatus(accessToken, taskId) {
+    try {
+      const response = await this.client.axiosInstance.get(
+        `/api/v1/avatar/status/${taskId}/`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`
+          }
+        }
+      );
+      return {
+        success: true,
+        status: response.data.status,
+        avatarUrl: response.data.result?.avatar_url
+      };
+    } catch (error) {
+      const errorData = error.response?.data;
+      return {
+        success: false,
+        error: errorData?.detail || errorData?.message || "Failed to get avatar status"
+      };
+    }
+  }
+  /**
+   * Poll avatar status until completion
+   */
+  async pollAvatarStatus(accessToken, taskId, options = {}) {
+    const {
+      onProgress,
+      onComplete,
+      onError,
+      maxAttempts = 30,
+      interval = 2e3
+    } = options;
+    let attempts = 0;
+    const poll = async () => {
+      attempts++;
+      if (attempts > maxAttempts) {
+        const timeoutError = "Avatar generation timed out";
+        onError?.(timeoutError);
+        return;
+      }
+      const result = await this.getAvatarStatus(accessToken, taskId);
+      if (!result.success) {
+        onError?.(result.error || "Unknown error");
+        return;
+      }
+      onProgress?.(result.status || "unknown");
+      if (result.status === "completed" && result.avatarUrl) {
+        onComplete?.(result.avatarUrl);
+        return;
+      }
+      if (result.status === "failed") {
+        onError?.("Avatar generation failed");
+        return;
+      }
+      setTimeout(poll, interval);
+    };
+    poll();
+  }
+};
+
+// src/lib/api/wallet.ts
+var ZO_TOKEN_CONFIG = {
+  base: {
+    rpc: "https://mainnet.base.org",
+    contractAddress: "0x111142c7ecaf39797b7865b82034269962142069",
+    // $Zo token on Base
+    decimals: 18
+  },
+  avalanche: {
+    rpc: "https://api.avax.network/ext/bc/C/rpc",
+    contractAddress: "0x111142c7ecaf39797b7865b82034269962142069",
+    // $Zo token on Avalanche (update if different)
+    decimals: 18
+  }
+};
+var ERC20_BALANCE_ABI = "0x70a08231";
+var ZoWallet = class {
+  constructor(client) {
+    this.cachedBalance = 0;
+    this.userWalletAddress = null;
+    this.network = "base";
+    this.client = client;
+  }
+  /**
+   * Set the user's wallet address for on-chain queries
+   */
+  setWalletAddress(address, network = "base") {
+    this.userWalletAddress = address;
+    this.network = network;
+    logger.debug(`Wallet address set: ${address} on ${network}`);
+  }
+  /**
+   * Get wallet balance - tries on-chain first, then API fallback
+   * @returns Wallet balance amount
+   */
+  async getBalance() {
+    if (this.userWalletAddress) {
+      try {
+        const onChainBalance = await this.getOnChainBalance();
+        if (onChainBalance !== null) {
+          this.cachedBalance = onChainBalance;
+          return onChainBalance;
+        }
+      } catch (error) {
+        logger.warn("On-chain balance check failed, falling back to API:", error);
+      }
+    }
+    const apiBalance = await this.getBalanceFromAPI();
+    if (apiBalance !== null) {
+      return apiBalance;
+    }
+    logger.debug("Returning cached/default balance:", this.cachedBalance);
+    return this.cachedBalance;
+  }
+  /**
+   * Fetch balance directly from blockchain via JSON-RPC
+   */
+  async getOnChainBalance() {
+    if (!this.userWalletAddress) {
+      logger.warn("No wallet address set for on-chain query");
+      return null;
+    }
+    const config = ZO_TOKEN_CONFIG[this.network];
+    try {
+      const paddedAddress = this.userWalletAddress.toLowerCase().replace("0x", "").padStart(64, "0");
+      const data = ERC20_BALANCE_ABI + paddedAddress;
+      const response = await fetch(config.rpc, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "eth_call",
+          params: [
+            {
+              to: config.contractAddress,
+              data
+            },
+            "latest"
+          ]
+        })
+      });
+      const result = await response.json();
+      if (result.error) {
+        logger.warn("RPC error:", result.error);
+        return null;
+      }
+      const rawBalance = BigInt(result.result || "0x0");
+      const balance = Number(rawBalance) / Math.pow(10, config.decimals);
+      logger.debug(`On-chain balance fetched: ${balance} $Zo`);
+      return balance;
+    } catch (error) {
+      logger.warn("Failed to fetch on-chain balance:", error);
+      return null;
+    }
+  }
+  /**
+   * Fetch balance from Zo API endpoints (tries multiple endpoints with fallback)
+   */
+  async getBalanceFromAPI() {
+    const endpoints = [
+      "/api/v1/web3/token/airdrops/summary",
+      "/api/v1/wallet/balance",
+      "/api/v1/profile/wallet"
+    ];
+    const errors = [];
+    for (const endpoint of endpoints) {
+      try {
+        const response = await this.client.axiosInstance.get(endpoint);
+        const balance = response.data?.data?.total_amount ?? response.data?.balance ?? response.data?.total_amount;
+        if (typeof balance === "number") {
+          logger.debug(`Balance fetched from API ${endpoint}:`, balance);
+          this.cachedBalance = balance;
+          return balance;
+        }
+      } catch (error) {
+        if (error?.response?.status !== 404) {
+          errors.push({
+            endpoint,
+            status: error?.response?.status,
+            message: error?.message || "Unknown error"
+          });
+        }
+      }
+    }
+    if (errors.length > 0) {
+      logger.warn("All balance API endpoints failed:", errors);
+    }
+    return null;
+  }
+  /**
+   * Get transaction history
+   * @param page - Optional page number for pagination
+   * @returns Array of transactions
+   */
+  async getTransactions(page) {
+    const endpoints = [
+      page ? `/api/v1/profile/completion-grants/claims?page=${page}` : "/api/v1/profile/completion-grants/claims",
+      page ? `/api/v1/wallet/transactions?page=${page}` : "/api/v1/wallet/transactions"
+    ];
+    const errors = [];
+    for (const url of endpoints) {
+      try {
+        const response = await this.client.axiosInstance.get(url);
+        const data = response.data?.data || response.data;
+        return {
+          transactions: data?.results ?? data?.transactions ?? [],
+          next: data?.next,
+          previous: data?.previous,
+          count: data?.count ?? 0
+        };
+      } catch (error) {
+        if (error?.response?.status !== 404) {
+          errors.push({
+            endpoint: url,
+            status: error?.response?.status,
+            message: error?.message || "Unknown error"
+          });
+        }
+      }
+    }
+    if (errors.length > 0) {
+      logger.warn("All transaction API endpoints failed:", errors);
+    }
+    return {
+      transactions: [],
+      next: void 0,
+      previous: void 0,
+      count: 0
+    };
+  }
+};
+
+// src/lib/utils/phone.ts
+var COUNTRY_CODES = [
+  { code: "1", country: "US", flag: "\u{1F1FA}\u{1F1F8}", name: "United States" },
+  { code: "91", country: "IN", flag: "\u{1F1EE}\u{1F1F3}", name: "India" },
+  { code: "44", country: "GB", flag: "\u{1F1EC}\u{1F1E7}", name: "United Kingdom" },
+  { code: "86", country: "CN", flag: "\u{1F1E8}\u{1F1F3}", name: "China" },
+  { code: "81", country: "JP", flag: "\u{1F1EF}\u{1F1F5}", name: "Japan" },
+  { code: "82", country: "KR", flag: "\u{1F1F0}\u{1F1F7}", name: "South Korea" },
+  { code: "33", country: "FR", flag: "\u{1F1EB}\u{1F1F7}", name: "France" },
+  { code: "49", country: "DE", flag: "\u{1F1E9}\u{1F1EA}", name: "Germany" },
+  { code: "7", country: "RU", flag: "\u{1F1F7}\u{1F1FA}", name: "Russia" },
+  { code: "55", country: "BR", flag: "\u{1F1E7}\u{1F1F7}", name: "Brazil" },
+  { code: "61", country: "AU", flag: "\u{1F1E6}\u{1F1FA}", name: "Australia" },
+  { code: "65", country: "SG", flag: "\u{1F1F8}\u{1F1EC}", name: "Singapore" },
+  { code: "971", country: "AE", flag: "\u{1F1E6}\u{1F1EA}", name: "UAE" },
+  { code: "966", country: "SA", flag: "\u{1F1F8}\u{1F1E6}", name: "Saudi Arabia" },
+  { code: "62", country: "ID", flag: "\u{1F1EE}\u{1F1E9}", name: "Indonesia" },
+  { code: "60", country: "MY", flag: "\u{1F1F2}\u{1F1FE}", name: "Malaysia" },
+  { code: "66", country: "TH", flag: "\u{1F1F9}\u{1F1ED}", name: "Thailand" },
+  { code: "84", country: "VN", flag: "\u{1F1FB}\u{1F1F3}", name: "Vietnam" },
+  { code: "63", country: "PH", flag: "\u{1F1F5}\u{1F1ED}", name: "Philippines" },
+  { code: "31", country: "NL", flag: "\u{1F1F3}\u{1F1F1}", name: "Netherlands" }
+];
+function formatPhoneNumber(phone) {
+  const cleaned = phone.replace(/\D/g, "");
+  if (cleaned.length === 10) {
+    return `${cleaned.slice(0, 3)}-${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
+  }
+  return cleaned;
+}
+function parsePhoneNumber(phone) {
+  return phone.replace(/\D/g, "");
+}
+
+// src/lib/utils/wallet.ts
+var formatBalance = (balance) => {
+  if (balance === 0) return "0";
+  const formatted = balance.toLocaleString("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2
+  });
+  return formatted;
+};
+var formatBalanceShort = (balance) => {
+  if (balance === 0) return "0";
+  if (balance < 1e3) return formatBalance(balance);
+  if (balance < 1e6) return `${(balance / 1e3).toFixed(1)}K`;
+  return `${(balance / 1e6).toFixed(1)}M`;
+};
+var formatWalletAddress = (address) => {
+  if (!address || address.length < 8) return address;
+  return `${address.slice(0, 4)}...${address.slice(-4)}`;
+};
+var formatNickname = (nickname) => {
+  if (!nickname) return "";
+  return nickname.startsWith("@") ? nickname : `@${nickname}`;
+};
+var formatTransactionAmount = (amount, action) => {
+  const formatted = formatBalance(amount);
+  return action === "spend" ? `- ${formatted}` : `+ ${formatted}`;
+};
+var getTransactionColor = (action) => {
+  return action === "spend" ? "#FF4444" : "#00C853";
+};
+
+// src/ZoPassportSDK.ts
+var ZoPassportSDK = class {
+  constructor(config) {
+    this.refreshTimer = null;
+    this._user = null;
+    this._isAuthenticated = false;
+    if (config.debug) {
+      logger.enable();
+      logger.setLevel("debug");
+    }
+    this.storage = config.storageAdapter || new LocalStorageAdapter();
+    this.client = new ZoApiClient({
+      ...config,
+      storageAdapter: this.storage
+    });
+    this.auth = new ZoAuth(this.client);
+    this.profile = new ZoProfile(this.client);
+    this.avatar = new ZoAvatar(this.client);
+    this.wallet = new ZoWallet(this.client);
+    if (config.autoRefresh !== false) {
+      this.startAutoRefresh(config.refreshInterval || 6e4);
+    }
+    this._readyPromise = this.loadSession();
+    logger.debug("SDK initialized with config:", {
+      baseUrl: config.baseUrl,
+      autoRefresh: config.autoRefresh !== false
+    });
+  }
+  /**
+   * Wait for the SDK to be ready (session loaded from storage)
+   * Use this if you need to check isAuthenticated immediately after construction
+   */
+  async ready() {
+    return this._readyPromise;
+  }
+  // =====================
+  // Session Management
+  // =====================
+  async loadSession() {
+    try {
+      const userJson = await this.storage.getItem(STORAGE_KEYS.USER);
+      const accessToken = await this.storage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+      if (userJson && accessToken) {
+        this._user = JSON.parse(userJson);
+        this._isAuthenticated = true;
+      }
+    } catch (error) {
+      logger.warn("Failed to load session:", error);
+    }
+  }
+  async saveSession(authResponse) {
+    await this.storage.setItem(STORAGE_KEYS.ACCESS_TOKEN, authResponse.access_token);
+    await this.storage.setItem(STORAGE_KEYS.REFRESH_TOKEN, authResponse.refresh_token);
+    await this.storage.setItem(STORAGE_KEYS.TOKEN_EXPIRY, authResponse.access_token_expiry);
+    await this.storage.setItem(STORAGE_KEYS.REFRESH_EXPIRY, authResponse.refresh_token_expiry);
+    await this.storage.setItem(STORAGE_KEYS.USER, JSON.stringify(authResponse.user));
+    await this.storage.setItem(STORAGE_KEYS.CLIENT_DEVICE_ID, authResponse.device_id || "");
+    await this.storage.setItem(STORAGE_KEYS.CLIENT_DEVICE_SECRET, authResponse.device_secret || "");
+    this._user = authResponse.user;
+    this._isAuthenticated = true;
+  }
+  async clearSession() {
+    await this.storage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
+    await this.storage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
+    await this.storage.removeItem(STORAGE_KEYS.TOKEN_EXPIRY);
+    await this.storage.removeItem(STORAGE_KEYS.REFRESH_EXPIRY);
+    await this.storage.removeItem(STORAGE_KEYS.USER);
+    await this.storage.removeItem(STORAGE_KEYS.CLIENT_DEVICE_ID);
+    await this.storage.removeItem(STORAGE_KEYS.CLIENT_DEVICE_SECRET);
+    this._user = null;
+    this._isAuthenticated = false;
+  }
+  // =====================
+  // Auto Token Refresh
+  // =====================
+  startAutoRefresh(interval) {
+    this.refreshTimer = setInterval(async () => {
+      await this.refreshTokenIfNeeded();
+    }, interval);
+  }
+  stopAutoRefresh() {
+    if (this.refreshTimer) {
+      clearInterval(this.refreshTimer);
+      this.refreshTimer = null;
+    }
+  }
+  async refreshTokenIfNeeded() {
+    const tokenExpiry = await this.storage.getItem(STORAGE_KEYS.TOKEN_EXPIRY);
+    const refreshToken = await this.storage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
+    if (!tokenExpiry || !refreshToken) return;
+    const expiryDate = new Date(tokenExpiry);
+    const now = /* @__PURE__ */ new Date();
+    const twoMinutes = 2 * 60 * 1e3;
+    if (expiryDate.getTime() - now.getTime() < twoMinutes) {
+      const result = await this.auth.refreshAccessToken(refreshToken);
+      if (result.success && result.tokens) {
+        await this.storage.setItem(STORAGE_KEYS.ACCESS_TOKEN, result.tokens.access);
+        await this.storage.setItem(STORAGE_KEYS.REFRESH_TOKEN, result.tokens.refresh);
+        await this.storage.setItem(STORAGE_KEYS.TOKEN_EXPIRY, result.tokens.access_expiry);
+        await this.storage.setItem(STORAGE_KEYS.REFRESH_EXPIRY, result.tokens.refresh_expiry);
+      }
+    }
+  }
+  // =====================
+  // Public API
+  // =====================
+  get user() {
+    return this._user;
+  }
+  get isAuthenticated() {
+    return this._isAuthenticated;
+  }
+  /**
+   * Complete phone authentication flow
+   */
+  async loginWithPhone(countryCode, phoneNumber, otp) {
+    const result = await this.auth.verifyOTP(countryCode, phoneNumber, otp);
+    if (result.success && result.data) {
+      await this.saveSession(result.data);
+      if (result.data.user?.wallet_address) {
+        this.wallet.setWalletAddress(result.data.user.wallet_address, "base");
+      }
+      return { success: true, user: result.data.user };
+    }
+    return { success: false, error: result.error };
+  }
+  /**
+   * Logout and clear session
+   */
+  async logout() {
+    await this.clearSession();
+    this.stopAutoRefresh();
+  }
+  /**
+   * Get current user profile
+   */
+  async getProfile() {
+    const accessToken = await this.storage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+    if (!accessToken) return null;
+    const result = await this.profile.getProfile(accessToken);
+    if (result.success && result.profile) {
+      this._user = result.profile;
+      await this.storage.setItem(STORAGE_KEYS.USER, JSON.stringify(result.profile));
+      if (result.profile.wallet_address) {
+        this.wallet.setWalletAddress(result.profile.wallet_address, "base");
+      }
+      return result.profile;
+    }
+    return null;
+  }
+  /**
+   * Update user profile
+   */
+  async updateProfile(updates) {
+    const accessToken = await this.storage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+    if (!accessToken) return { success: false, error: "Not authenticated" };
+    const result = await this.profile.updateProfile(accessToken, updates);
+    if (result.success && result.profile) {
+      this._user = result.profile;
+      await this.storage.setItem(STORAGE_KEYS.USER, JSON.stringify(result.profile));
+      return { success: true, profile: result.profile };
+    }
+    return { success: false, error: result.error };
+  }
+  /**
+   * Generate avatar
+   */
+  async generateAvatar(bodyType) {
+    const accessToken = await this.storage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+    if (!accessToken) return { success: false, error: "Not authenticated" };
+    const startResult = await this.avatar.generateAvatar(accessToken, bodyType);
+    if (!startResult.success || !startResult.task_id) {
+      return { success: false, error: startResult.error };
+    }
+    return new Promise((resolve) => {
+      this.avatar.pollAvatarStatus(accessToken, startResult.task_id, {
+        onComplete: (avatarUrl) => {
+          resolve({ success: true, avatarUrl });
+        },
+        onError: (error) => {
+          resolve({ success: false, error });
+        }
+      });
+    });
+  }
+  /**
+   * Get wallet balance
+   */
+  async getWalletBalance() {
+    return this.wallet.getBalance();
+  }
+  /**
+   * Get wallet transactions
+   */
+  async getWalletTransactions(page) {
+    return this.wallet.getTransactions(page);
+  }
+  /**
+   * Cleanup
+   */
+  destroy() {
+    this.stopAutoRefresh();
+  }
+};
+
+// assets/wallet/constants.ts
+var WALLET_DIMENSIONS = {
+  cardAspectRatio: 312 / 200,
+  coverAspectRatio: 312 / 120,
+  cardBorderRadius: 16,
+  innerBorderRadius: 12,
+  avatarSize: 32,
+  tokenSize: 16,
+  tokenVideoSize: 24
+};
+
+// assets/index.ts
+var ASSETS = {
+  // Core avatars
+  BRO_AVATAR: "/bro.png",
+  BAE_AVATAR: "/bae.png",
+  FALLBACK_AVATAR: "/zo-fallback.png",
+  DEFAULT_AVATAR: "/images/rank1.jpeg",
+  // Branding
+  ZO_LOGO: "/figma-assets/landing-zo-logo.png",
+  ZO_COIN: "/zo-coin.gif",
+  // Videos
+  LANDING_VIDEO: "/videos/loading-screen-background.mp4",
+  PORTAL_VIDEO: "/videos/opening-disks.mp4",
+  // Passport backgrounds (CDN)
+  FOUNDER_BG: "https://proxy.cdn.zo.xyz/gallery/media/images/a1659b07-94f0-4490-9b3c-3366715d9717_20250515053726.png",
+  CITIZEN_BG: "https://proxy.cdn.zo.xyz/gallery/media/images/bda9da5a-eefe-411d-8d90-667c80024463_20250515053805.png",
+  // Lotties
+  LOADER: "/lotties/loader.json",
+  SPINNER: "/lotties/spinner.json"
+};
+var CULTURE_STICKERS = {
+  travel: "/cultural-stickers/Travel&Adventure.png",
+  design: "/cultural-stickers/Design.png",
+  tech: "/cultural-stickers/Science&Technology.png",
+  food: "/cultural-stickers/Food.png",
+  music: "/cultural-stickers/Music&Entertainment.png",
+  photography: "/cultural-stickers/Photography.png",
+  fitness: "/cultural-stickers/Health&Fitness.png",
+  sports: "/cultural-stickers/Sport.png",
+  literature: "/cultural-stickers/Literature&Stories.png",
+  cinema: "/cultural-stickers/Television&Cinema.png",
+  spiritual: "/cultural-stickers/Spiritual.png",
+  nature: "/cultural-stickers/Nature&Wildlife.png",
+  business: "/cultural-stickers/Business.png",
+  law: "/cultural-stickers/Law.png",
+  lifestyle: "/cultural-stickers/Home&Lifestyle.png",
+  gaming: "/cultural-stickers/Game.png",
+  stories: "/cultural-stickers/Stories&Journal.png"
+};
+var CULTURES = [
+  { id: "travel", name: "Travel & Adventure", icon: CULTURE_STICKERS.travel },
+  { id: "design", name: "Design", icon: CULTURE_STICKERS.design },
+  { id: "tech", name: "Science & Technology", icon: CULTURE_STICKERS.tech },
+  { id: "food", name: "Food", icon: CULTURE_STICKERS.food },
+  { id: "music", name: "Music & Entertainment", icon: CULTURE_STICKERS.music },
+  { id: "photography", name: "Photography", icon: CULTURE_STICKERS.photography },
+  { id: "fitness", name: "Health & Fitness", icon: CULTURE_STICKERS.fitness },
+  { id: "sports", name: "Sport", icon: CULTURE_STICKERS.sports },
+  { id: "literature", name: "Literature & Stories", icon: CULTURE_STICKERS.literature },
+  { id: "cinema", name: "Television & Cinema", icon: CULTURE_STICKERS.cinema },
+  { id: "spiritual", name: "Spiritual", icon: CULTURE_STICKERS.spiritual },
+  { id: "nature", name: "Nature & Wildlife", icon: CULTURE_STICKERS.nature },
+  { id: "business", name: "Business", icon: CULTURE_STICKERS.business },
+  { id: "law", name: "Law", icon: CULTURE_STICKERS.law },
+  { id: "lifestyle", name: "Home & Lifestyle", icon: CULTURE_STICKERS.lifestyle },
+  { id: "gaming", name: "Game", icon: CULTURE_STICKERS.gaming },
+  { id: "stories", name: "Stories & Journal", icon: CULTURE_STICKERS.stories }
+];
+// Annotate the CommonJS export names for ESM import in node:
+0 && (module.exports = {
+  ASSETS,
+  AsyncStorageAdapter,
+  COUNTRY_CODES,
+  CULTURES,
+  CULTURE_STICKERS,
+  LocalStorageAdapter,
+  STORAGE_KEYS,
+  ZoApiClient,
+  ZoAuth,
+  ZoAvatar,
+  ZoPassportSDK,
+  ZoProfile,
+  ZoWallet,
+  formatBalance,
+  formatBalanceShort,
+  formatNickname,
+  formatPhoneNumber,
+  formatTransactionAmount,
+  formatWalletAddress,
+  getTransactionColor,
+  logger,
+  parsePhoneNumber
+});
+//# sourceMappingURL=index.js.map
