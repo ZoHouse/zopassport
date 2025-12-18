@@ -8,21 +8,14 @@ Complete authentication, onboarding, and passport experience for Zo World applic
 
 ---
 
-## 🚀 Quick Start - Get Running in 4 Commands
+## 🚀 Quick Start - Single Command!
 
 ```bash
-# 1. Create project and install
-mkdir my-zopassport && cd my-zopassport
-npm install zopassport
+# Create a new Zo Passport app
+npx create-zopassport my-app
 
-# 2. Initialize the app
-npx create-zopassport
-
-# 3. Configure your client key
-cp .env.example .env
-# Edit .env: VITE_ZO_CLIENT_KEY=your-actual-key
-
-# 4. Run the app
+cd my-app
+cp .env.example .env    # Add your VITE_ZO_CLIENT_KEY
 npm install && npm run dev
 ```
 
@@ -30,24 +23,26 @@ npm install && npm run dev
 
 🔑 Get your client key at: **[https://zo.xyz/developers](https://zo.xyz/developers)**
 
-📖 [**Full Installation Guide →**](./INSTALL.md)
-
 ---
 
 ## 📦 What's Included
 
-After `npm install zopassport`, you get:
+When you run `npx create-zopassport`, you get:
 
-✅ **Complete Demo App** - Full working phone → passport → wallet flow
-✅ **All Dependencies** - React, Vite, TypeScript pre-configured
-✅ **All Assets** - Images, videos, icons bundled
-✅ **Environment Template** - Just add your client key
+✅ **Complete Demo App** - Full working phone → passport → wallet flow  
+✅ **All Dependencies** - React, Vite, TypeScript pre-configured  
+✅ **All Assets** - Images, videos, icons bundled  
+✅ **Environment Template** - Just add your client key  
 
 ---
 
-## 🎯 For Developers - Use as SDK
+## 🎯 Use as SDK in Existing Apps
 
-Want to integrate into your existing app? Use it as a library:
+Want to integrate into your existing app? Install the SDK:
+
+```bash
+npm install zopassport
+```
 
 ### 1. Initialize the SDK
 
@@ -63,7 +58,7 @@ const sdk = new ZoPassportSDK({
 ### 2. React Integration
 
 ```tsx
-import { ZoPassportProvider, useZoPassport, ZoLanding, ZoOnboarding, ZoPassportCard } from 'zopassport/react';
+import { ZoPassportProvider, useZoPassport, ZoLanding, ZoPassportCard } from 'zopassport/react';
 
 function App() {
   return (
@@ -87,41 +82,29 @@ function YourApp() {
   }
 
   return (
-    <div>
-      <ZoPassportCard
-        profile={{
-          avatar: user.avatar?.image,
-          name: user.first_name,
-          isFounder: user.membership === 'founder',
-        }}
-        completion={{ done: 8, total: 10 }}
-      />
-    </div>
+    <ZoPassportCard
+      profile={{
+        avatar: user.avatar?.image,
+        name: user.first_name,
+        isFounder: user.membership === 'founder',
+      }}
+      completion={{ done: 8, total: 10 }}
+    />
   );
 }
 ```
 
+---
+
 ## Features
 
-### ✅ Authentication
-- Phone number + OTP authentication
-- Automatic token refresh
-- Session persistence
+- **Authentication** - Phone number + OTP, auto token refresh, session persistence
+- **Avatar Generation** - Choose body type (Bro/Bae), AI-powered generation
+- **Passport Card** - Leather texture design, Founder/Citizen variants
+- **Onboarding Flow** - Nickname, location, avatar preview
+- **Wallet** - Balance, transaction history
 
-### ✅ Avatar Generation
-- Choose body type (Bro/Bae)
-- AI-powered avatar generation
-- Polling status updates
-
-### ✅ Passport Card
-- Leather texture design
-- Founder/Citizen variants
-- Progress ring indicator
-
-### ✅ Onboarding Flow
-- Nickname input
-- Location detection
-- Avatar preview
+---
 
 ## Components
 
@@ -133,9 +116,6 @@ Full-screen landing page with video background and auth modal.
   onAuthSuccess={(userId, user) => {}}
   sendOTP={async (code, phone) => sdk.auth.sendOTP(code, phone)}
   verifyOTP={async (code, phone, otp) => sdk.auth.verifyOTP(code, phone, otp)}
-  videoUrl="/videos/background.mp4"
-  logoUrl="/zo-logo.png"
-  title="ZOHMMM!"
 />
 ```
 
@@ -155,11 +135,7 @@ Passport card display component.
 
 ```tsx
 <ZoPassportCard
-  profile={{
-    avatar: 'https://...',
-    name: 'Samurai',
-    isFounder: true,
-  }}
+  profile={{ avatar: 'https://...', name: 'Samurai', isFounder: true }}
   completion={{ done: 8, total: 10 }}
 />
 ```
@@ -176,93 +152,40 @@ Standalone phone OTP authentication component.
 />
 ```
 
-### `<PhoneInput />` & `<OTPInput />`
-Low-level input components for custom auth flows.
+---
 
 ## Hooks
 
 ### `useZoPassport()`
-Main hook for authentication state and operations.
-
 ```tsx
-const {
-  sdk,
-  user,
-  isAuthenticated,
-  isLoading,
-  sendOTP,
-  verifyOTP,
-  logout,
-  refreshProfile,
-} = useZoPassport();
+const { sdk, user, isAuthenticated, isLoading, sendOTP, verifyOTP, logout, refreshProfile } = useZoPassport();
 ```
 
 ### `useProfile()`
-Profile operations and completion tracking.
-
 ```tsx
-const {
-  user,
-  completion,
-  isFounder,
-  updateProfile,
-  reload,
-} = useProfile();
+const { user, completion, isFounder, updateProfile, reload } = useProfile();
 ```
 
 ### `useAvatar()`
-Avatar generation operations.
+```tsx
+const { avatarUrl, isGenerating, generateAvatar } = useAvatar();
+```
+
+---
+
+## Wallet Integration
 
 ```tsx
-const {
-  avatarUrl,
-  isGenerating,
-  generateAvatar,
-} = useAvatar();
+import { WalletScreen, WalletCard } from 'zopassport/react';
+
+// Full wallet screen
+<WalletScreen onBack={() => console.log('Back')} />
+
+// Wallet card widget
+<WalletCard balance={100} user={user} isOpen={isOpen} onToggle={() => setIsOpen(!isOpen)} />
 ```
 
-## Assets Required
-
-Include these assets in your `public/` folder:
-
-```
-public/
-├── figma-assets/
-│   └── landing-zo-logo.png          # Zo logo
-├── videos/
-│   └── loading-screen-background.mp4 # Background video
-├── bro.png                          # Bro avatar preview
-├── bae.png                          # Bae avatar preview
-├── Cultural Stickers/               # Culture icons
-│   ├── Travel&Adventure.png
-│   ├── Design.png
-│   ├── Science&Technology.png
-│   ├── Food.png
-│   ├── Music&Entertainment.png
-│   ├── Photography.png
-│   ├── Health&Fitness.png
-│   ├── Sport.png
-│   ├── Literature&Stories.png
-│   ├── Television&Cinema.png
-│   ├── Spiritual.png
-│   ├── Nature&Wildlife.png
-│   ├── Business.png
-│   ├── Law.png
-│   ├── Home&Lifestyle.png
-│   ├── Game.png
-│   └── Stories&Journal.png
-└── images/
-    └── rank1.jpeg                   # Fallback avatar
-```
-
-## CDN Assets
-
-The SDK uses these CDN URLs for passport backgrounds:
-
-- **Founder Background**: `https://proxy.cdn.zo.xyz/gallery/media/images/a1659b07-94f0-4490-9b3c-3366715d9717_20250515053726.png`
-- **Citizen Background**: `https://proxy.cdn.zo.xyz/gallery/media/images/bda9da5a-eefe-411d-8d90-667c80024463_20250515053805.png`
-
-You can override these via props.
+---
 
 ## Storage Adapters
 
@@ -280,88 +203,19 @@ const sdk = new ZoPassportSDK({
 });
 ```
 
-### Server-Side / Testing
-```tsx
-import { ZoPassportSDK, MemoryStorageAdapter } from 'zopassport';
-
-const sdk = new ZoPassportSDK({
-  clientKey: 'your-key',
-  storageAdapter: new MemoryStorageAdapter(),
-});
-```
+---
 
 ## TypeScript
 
-Full TypeScript support with exported types:
+Full TypeScript support:
 
 ```typescript
-import type {
-  ZoUser,
-  ZoAuthResponse,
-  ZoProfileUpdatePayload,
-  ZoPassportConfig,
-} from 'zopassport';
+import type { ZoUser, ZoAuthResponse, ZoProfileUpdatePayload, ZoPassportConfig } from 'zopassport';
 ```
 
-## License
+---
 
-MIT © Zo World Team
-
-## Wallet Integration
-
-The SDK includes a built-in wallet system for managing Zo World assets.
-
-### Framework-Agnostic Usage
-
-```typescript
-// Get wallet balance
-const balance = await sdk.wallet.getBalance();
-console.log('Balance:', balance.total_amount);
-
-// Get transaction history
-const transactions = await sdk.wallet.getTransactions();
-console.log('Transactions:', transactions);
-```
-
-### React Components
-
-The SDK provides ready-to-use wallet components:
-
-```tsx
-import { WalletScreen, WalletCard } from 'zopassport/react';
-
-// Full wallet screen
-<WalletScreen onBack={() => console.log('Back')} />
-
-// Wallet card widget
-<WalletCard 
-  balance={100} 
-  user={user} 
-  isOpen={isOpen} 
-  onToggle={() => setIsOpen(!isOpen)} 
-/>
-```
-
-### React Hooks
-
-```tsx
-import { useWalletBalance, useTransactions } from 'zopassport/react';
-
-const MyWallet = () => {
-  const { balance, isLoading } = useWalletBalance(sdk.client);
-  const { transactions } = useTransactions(sdk.client);
-
-  return <div>Balance: {balance}</div>;
-};
-```
-
-## Universal UI Support (Web + Mobile)
-
-The SDK's UI components are built with React Native but can run on the web using `react-native-web`.
-
-### Vite Configuration
-
-To use the UI components in a Vite app, configure your `vite.config.ts`:
+## Vite Configuration
 
 ```typescript
 import { defineConfig } from 'vite';
@@ -373,35 +227,16 @@ export default defineConfig({
   resolve: {
     alias: {
       'react-native': 'react-native-web',
-      // Mock reanimated if not using web-compatible version
       'react-native-reanimated': path.resolve(__dirname, './reanimated-mock.js'),
     },
     extensions: ['.web.js', '.web.ts', '.web.tsx', '.js', '.ts', '.tsx'],
   },
-  define: {
-    global: 'window',
-  },
+  define: { global: 'window' },
 });
 ```
 
-### Next.js Configuration
+---
 
-For Next.js, use `next-transpile-modules`:
+## License
 
-```javascript
-const withTM = require('next-transpile-modules')([
-  'zopassport',
-  'react-native-web',
-]);
-
-module.exports = withTM({
-  webpack: (config) => {
-    config.resolve.alias = {
-      ...(config.resolve.alias || {}),
-      'react-native$': 'react-native-web',
-    };
-    return config;
-  },
-});
-```
-
+MIT © Zo World Team
