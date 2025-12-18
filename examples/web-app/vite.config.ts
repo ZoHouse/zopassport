@@ -5,6 +5,18 @@ import path from 'path'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  optimizeDeps: {
+    force: true, // Always re-bundle dependencies
+  },
+  server: {
+    hmr: {
+      overlay: true,
+    },
+    fs: {
+      // Allow serving files from the parent SDK assets folder
+      allow: ['..', '../..'],
+    },
+  },
   resolve: {
     alias: {
       'react-native': 'react-native-web',
@@ -16,4 +28,6 @@ export default defineConfig({
   define: {
     global: 'window',
   },
+  // Serve assets from parent SDK folder
+  publicDir: path.resolve(__dirname, '../../assets'),
 })
