@@ -1,38 +1,38 @@
 // src/components/ZoAvatar.tsx
-// Avatar display component with fallback
+// Avatar display component with initials fallback (no default image)
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 export interface ZoAvatarProps {
   /** Avatar image URL */
   src?: string;
-  /** User name (for alt text and fallback) */
+  /** User name (for alt text and initials) */
   name?: string;
   /** Size in pixels (default: 120) */
   size?: number;
-  /** Fallback image URL */
-  fallbackUrl?: string;
   /** Additional CSS class */
   className?: string;
 }
-
-// Default fallback avatar
-const DEFAULT_FALLBACK = '/images/rank1.jpeg';
 
 export const ZoAvatar: React.FC<ZoAvatarProps> = ({
   src,
   name = 'User',
   size = 120,
-  fallbackUrl = DEFAULT_FALLBACK,
   className = '',
 }) => {
-  const [imgSrc, setImgSrc] = useState(src || fallbackUrl);
+  const [imgSrc, setImgSrc] = useState<string | null>(src || null);
   const [hasError, setHasError] = useState(false);
+
+  // Update imgSrc when src prop changes
+  useEffect(() => {
+    setImgSrc(src || null);
+    setHasError(false);
+  }, [src]);
 
   const handleError = () => {
     if (!hasError) {
       setHasError(true);
-      setImgSrc(fallbackUrl);
+      setImgSrc(null); // Show initials on error instead of fallback image
     }
   };
 

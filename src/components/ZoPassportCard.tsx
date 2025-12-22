@@ -28,8 +28,6 @@ export interface ZoPassportCardProps {
   founderBgUrl?: string;
   /** Optional: Override citizen background URL */
   citizenBgUrl?: string;
-  /** Optional: Default avatar fallback URL */
-  defaultAvatarUrl?: string;
 }
 
 export const ZoPassportCard: React.FC<ZoPassportCardProps> = ({
@@ -38,11 +36,10 @@ export const ZoPassportCard: React.FC<ZoPassportCardProps> = ({
   className = '',
   founderBgUrl = FOUNDER_BG,
   citizenBgUrl = CITIZEN_BG,
-  defaultAvatarUrl = '/images/rank1.jpeg',
 }) => {
   const isFounder = profile?.isFounder || false;
   const name = profile?.name || 'New Citizen';
-  const avatar = profile?.avatar || defaultAvatarUrl;
+  const avatar = profile?.avatar; // No fallback - ZoAvatar handles missing avatars with initials
   const done = completion?.done || 0;
   const total = completion?.total || 1;
   const progress = Math.min(100, Math.max(0, (done / total) * 100));

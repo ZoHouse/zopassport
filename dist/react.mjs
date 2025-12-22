@@ -1,5 +1,5 @@
 // src/react.tsx
-import { createContext, useContext, useEffect as useEffect10, useState as useState10 } from "react";
+import { createContext, useContext, useEffect as useEffect11, useState as useState10 } from "react";
 
 // src/lib/api/client.ts
 import axios from "axios";
@@ -940,22 +940,24 @@ var FounderBadge = ({ size = 32 }) => /* @__PURE__ */ jsxs2("svg", { width: size
 ] });
 
 // src/components/ZoAvatar.tsx
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { jsx as jsx3 } from "react/jsx-runtime";
-var DEFAULT_FALLBACK = "/images/rank1.jpeg";
 var ZoAvatar2 = ({
   src,
   name = "User",
   size = 120,
-  fallbackUrl = DEFAULT_FALLBACK,
   className = ""
 }) => {
-  const [imgSrc, setImgSrc] = useState(src || fallbackUrl);
+  const [imgSrc, setImgSrc] = useState(src || null);
   const [hasError, setHasError] = useState(false);
+  useEffect(() => {
+    setImgSrc(src || null);
+    setHasError(false);
+  }, [src]);
   const handleError = () => {
     if (!hasError) {
       setHasError(true);
-      setImgSrc(fallbackUrl);
+      setImgSrc(null);
     }
   };
   const initials = name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
@@ -1010,12 +1012,11 @@ var ZoPassportCard = ({
   completion,
   className = "",
   founderBgUrl = FOUNDER_BG,
-  citizenBgUrl = CITIZEN_BG,
-  defaultAvatarUrl = "/images/rank1.jpeg"
+  citizenBgUrl = CITIZEN_BG
 }) => {
   const isFounder = profile?.isFounder || false;
   const name = profile?.name || "New Citizen";
-  const avatar = profile?.avatar || defaultAvatarUrl;
+  const avatar = profile?.avatar;
   const done = completion?.done || 0;
   const total = completion?.total || 1;
   const progress = Math.min(100, Math.max(0, done / total * 100));
@@ -1164,10 +1165,10 @@ var ZoPassportCard = ({
 };
 
 // src/components/ZoPassportPage.tsx
-import { useEffect as useEffect3 } from "react";
+import { useEffect as useEffect4 } from "react";
 
 // src/components/wallet/WalletCardWeb.tsx
-import { useEffect, memo } from "react";
+import { useEffect as useEffect2, memo } from "react";
 
 // src/lib/utils/wallet.ts
 var formatBalance = (balance) => {
@@ -1402,7 +1403,7 @@ var WalletCardWeb = memo(({
   onToggle,
   isLoading = false
 }) => {
-  useEffect(() => {
+  useEffect2(() => {
     const cleanup = injectStyles(STYLE_ID, CSS);
     return cleanup;
   }, []);
@@ -1455,7 +1456,7 @@ var WalletCardWeb = memo(({
 WalletCardWeb.displayName = "WalletCardWeb";
 
 // src/components/wallet/WalletFullPage.tsx
-import { useEffect as useEffect2 } from "react";
+import { useEffect as useEffect3 } from "react";
 import { jsx as jsx6, jsxs as jsxs5 } from "react/jsx-runtime";
 var ZO_COIN_URL2 = "/zo-coin.gif";
 var STYLE_ID2 = "zo-wallet-fullpage-styles";
@@ -1692,7 +1693,7 @@ var WalletFullPage = ({
   isLoading = false,
   onRefresh
 }) => {
-  useEffect2(() => {
+  useEffect3(() => {
     const cleanupStyles = injectStyles(STYLE_ID2, CSS2);
     document.body.style.overflow = "hidden";
     return () => {
@@ -2176,7 +2177,7 @@ var ZoPassportPage = ({
   onWalletToggle,
   onRemoveCulture
 }) => {
-  useEffect3(() => {
+  useEffect4(() => {
     const cleanup = injectStyles(STYLE_ID3, CSS3);
     return cleanup;
   }, []);
@@ -2388,7 +2389,7 @@ var PhoneInput = ({
 };
 
 // src/components/OTPInput.tsx
-import { useRef, useEffect as useEffect4 } from "react";
+import { useRef, useEffect as useEffect5 } from "react";
 import { jsx as jsx9, jsxs as jsxs8 } from "react/jsx-runtime";
 var OTPInput = ({
   value,
@@ -2401,10 +2402,10 @@ var OTPInput = ({
   className = ""
 }) => {
   const inputRefs = useRef([]);
-  useEffect4(() => {
+  useEffect5(() => {
     inputRefs.current = inputRefs.current.slice(0, length);
   }, [length]);
-  useEffect4(() => {
+  useEffect5(() => {
     if (autoFocus && inputRefs.current[0]) {
       setTimeout(() => inputRefs.current[0]?.focus(), 100);
     }
@@ -2492,7 +2493,7 @@ var OTPInput = ({
 };
 
 // src/components/ZoAuth.tsx
-import { useState as useState2, useEffect as useEffect5 } from "react";
+import { useState as useState2, useEffect as useEffect6 } from "react";
 import { jsx as jsx10, jsxs as jsxs9 } from "react/jsx-runtime";
 var ZoAuth2 = ({
   onSuccess,
@@ -2510,7 +2511,7 @@ var ZoAuth2 = ({
   const [isLoading, setIsLoading] = useState2(false);
   const [error, setError] = useState2(null);
   const [resendCooldown, setResendCooldown] = useState2(0);
-  useEffect5(() => {
+  useEffect6(() => {
     if (resendCooldown > 0) {
       const timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1e3);
       return () => clearTimeout(timer);
@@ -2979,7 +2980,7 @@ var ZoLanding = ({
 };
 
 // src/components/ZoOnboarding.tsx
-import { useState as useState4, useEffect as useEffect6, useRef as useRef2 } from "react";
+import { useState as useState4, useEffect as useEffect7, useRef as useRef2 } from "react";
 import { jsx as jsx12, jsxs as jsxs11 } from "react/jsx-runtime";
 var ZoOnboarding = ({
   onComplete,
@@ -3004,7 +3005,7 @@ var ZoOnboarding = ({
   const attemptsRef = useRef2(0);
   const isNicknameValid = nickname.length >= 4 && nickname.length <= 16 && /^[a-z0-9]*$/.test(nickname);
   const canSubmit = isNicknameValid && locationEnabled && bodyType && !isSaving;
-  useEffect6(() => {
+  useEffect7(() => {
     return () => {
       if (pollingRef.current) clearTimeout(pollingRef.current);
     };
@@ -3568,7 +3569,7 @@ function useAvatar() {
 import { useCallback as useCallback6 } from "react";
 
 // src/hooks/useWalletBalance.ts
-import { useState as useState8, useEffect as useEffect8, useCallback as useCallback4 } from "react";
+import { useState as useState8, useEffect as useEffect9, useCallback as useCallback4 } from "react";
 var useWalletBalance = (apiClient, options) => {
   const [balance, setBalance] = useState8(0);
   const [isLoading, setIsLoading] = useState8(true);
@@ -3592,7 +3593,7 @@ var useWalletBalance = (apiClient, options) => {
       setIsLoading(false);
     }
   }, [apiClient]);
-  useEffect8(() => {
+  useEffect9(() => {
     fetchBalance();
     if (options?.autoRefetch) {
       const interval = setInterval(fetchBalance, options.refetchInterval || 3e4);
@@ -3608,7 +3609,7 @@ var useWalletBalance = (apiClient, options) => {
 };
 
 // src/hooks/useTransactions.ts
-import { useState as useState9, useEffect as useEffect9, useCallback as useCallback5 } from "react";
+import { useState as useState9, useEffect as useEffect10, useCallback as useCallback5 } from "react";
 var useTransactions = (apiClient, options) => {
   const [transactions, setTransactions] = useState9([]);
   const [isLoading, setIsLoading] = useState9(true);
@@ -3641,7 +3642,7 @@ var useTransactions = (apiClient, options) => {
   const loadMore = useCallback5(async () => {
     if (!hasMore || isLoading) return;
   }, [hasMore, isLoading]);
-  useEffect9(() => {
+  useEffect10(() => {
     fetchTransactions();
     if (options?.autoRefetch) {
       const interval = setInterval(fetchTransactions, 6e4);
@@ -3701,7 +3702,7 @@ function ZoPassportProvider({
   const [user, setUser] = useState10(null);
   const [isAuthenticated, setIsAuthenticated] = useState10(false);
   const [isLoading, setIsLoading] = useState10(true);
-  useEffect10(() => {
+  useEffect11(() => {
     const passportSdk = new ZoPassportSDK({
       clientKey,
       baseUrl,

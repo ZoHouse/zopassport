@@ -143,12 +143,14 @@ export const ZoOnboarding: React.FC<ZoOnboardingProps> = ({
   // Poll for avatar
   const pollForAvatar = async () => {
     attemptsRef.current += 1;
-    const maxAttempts = 30;
+    const maxAttempts = 60; // Poll for up to 60 seconds
 
     if (attemptsRef.current > maxAttempts) {
-      // Timeout - use default avatar
-      setAvatarUrl(bodyType === 'bro' ? broAvatarUrl : baeAvatarUrl);
-      setStep('success');
+      // Timeout - show error instead of using fallback avatar
+      setError('Avatar generation timed out. Please try again.');
+      setStep('input');
+      setIsSaving(false);
+      attemptsRef.current = 0;
       return;
     }
 

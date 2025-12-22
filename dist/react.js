@@ -996,20 +996,22 @@ var FounderBadge = ({ size = 32 }) => /* @__PURE__ */ (0, import_jsx_runtime2.js
 // src/components/ZoAvatar.tsx
 var import_react = require("react");
 var import_jsx_runtime3 = require("react/jsx-runtime");
-var DEFAULT_FALLBACK = "/images/rank1.jpeg";
 var ZoAvatar2 = ({
   src,
   name = "User",
   size = 120,
-  fallbackUrl = DEFAULT_FALLBACK,
   className = ""
 }) => {
-  const [imgSrc, setImgSrc] = (0, import_react.useState)(src || fallbackUrl);
+  const [imgSrc, setImgSrc] = (0, import_react.useState)(src || null);
   const [hasError, setHasError] = (0, import_react.useState)(false);
+  (0, import_react.useEffect)(() => {
+    setImgSrc(src || null);
+    setHasError(false);
+  }, [src]);
   const handleError = () => {
     if (!hasError) {
       setHasError(true);
-      setImgSrc(fallbackUrl);
+      setImgSrc(null);
     }
   };
   const initials = name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
@@ -1064,12 +1066,11 @@ var ZoPassportCard = ({
   completion,
   className = "",
   founderBgUrl = FOUNDER_BG,
-  citizenBgUrl = CITIZEN_BG,
-  defaultAvatarUrl = "/images/rank1.jpeg"
+  citizenBgUrl = CITIZEN_BG
 }) => {
   const isFounder = profile?.isFounder || false;
   const name = profile?.name || "New Citizen";
-  const avatar = profile?.avatar || defaultAvatarUrl;
+  const avatar = profile?.avatar;
   const done = completion?.done || 0;
   const total = completion?.total || 1;
   const progress = Math.min(100, Math.max(0, done / total * 100));

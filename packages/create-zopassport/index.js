@@ -114,14 +114,15 @@ async function main() {
             }
         }
 
-        // Copy assets to public/assets
+        // Copy assets to public (at root level, not in assets subfolder)
+        // This ensures URLs like /figma-assets/landing-zo-logo.png work correctly
         if (fs.existsSync(assetsDir)) {
-            const publicAssetsPath = path.join(projectPath, 'public', 'assets');
-            if (!fs.existsSync(publicAssetsPath)) {
-                fs.mkdirSync(publicAssetsPath, { recursive: true });
-                log(`   ${GREEN}✓${RESET} public/assets/`);
-                copyRecursive(assetsDir, publicAssetsPath);
+            const publicPath = path.join(projectPath, 'public');
+            if (!fs.existsSync(publicPath)) {
+                fs.mkdirSync(publicPath, { recursive: true });
             }
+            log(`   ${GREEN}✓${RESET} public/ (assets)`);
+            copyRecursive(assetsDir, publicPath);
         }
 
         // Create package.json

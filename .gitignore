@@ -32,3 +32,6 @@ coverage/
 
 # npm tarballs
 *.tgz
+
+# Test apps (created during local testing)
+packages/zo-test-app*/

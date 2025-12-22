@@ -489,8 +489,6 @@ interface ZoPassportCardProps {
     founderBgUrl?: string;
     /** Optional: Override citizen background URL */
     citizenBgUrl?: string;
-    /** Optional: Default avatar fallback URL */
-    defaultAvatarUrl?: string;
 }
 declare const ZoPassportCard: React.FC<ZoPassportCardProps>;
 
@@ -524,12 +522,10 @@ declare const ZoProgressRing: React.FC<ZoProgressRingProps>;
 interface ZoAvatarProps {
     /** Avatar image URL */
     src?: string;
-    /** User name (for alt text and fallback) */
+    /** User name (for alt text and initials) */
     name?: string;
     /** Size in pixels (default: 120) */
     size?: number;
-    /** Fallback image URL */
-    fallbackUrl?: string;
     /** Additional CSS class */
     className?: string;
 }
