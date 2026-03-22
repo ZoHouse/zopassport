@@ -29,3 +29,9 @@ coverage/
 # Temp files
 *.tmp
 *.temp
+
+# npm tarballs
+*.tgz
+
+# Test apps (created during local testing)
+packages/zo-test-app*/

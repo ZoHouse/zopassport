@@ -142,10 +142,10 @@ export class ZoAvatar {
       }
 
       // Continue polling
-      setTimeout(poll, interval);
+      setTimeout(() => { poll().catch(err => onError?.(String(err))); }, interval);
     };
 
-    poll();
+    poll().catch(err => onError?.(String(err)));
   }
 }
 

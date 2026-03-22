@@ -1,0 +1,27 @@
+# Source (dist/ is published instead)
+src/
+tests/
+packages/
+
+# Config files
+tsconfig.json
+tsup.config.ts
+vitest.config.ts
+.env
+.env.*
+!.env.example
+
+# Dev files
+.github/
+.vscode/
+.idea/
+coverage/
+node_modules/
+*.tgz
+
+# Git
+.git/
+.gitignore
+
+# Docs (included via files in package.json)
+CONTRIBUTING.md

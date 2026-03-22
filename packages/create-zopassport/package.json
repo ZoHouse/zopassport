@@ -1,0 +1,36 @@
+{
+    "name": "create-zopassport",
+    "version": "0.1.0",
+    "description": "Create Zo Passport apps with one command",
+    "bin": {
+        "create-zopassport": "./index.js"
+    },
+    "files": [
+        "index.js",
+        "template",
+        "assets"
+    ],
+    "keywords": [
+        "zo",
+        "zo-world",
+        "passport",
+        "create",
+        "cli",
+        "scaffold",
+        "boilerplate"
+    ],
+    "author": "Zo World Team",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/ZoHouse/zopassport.git",
+        "directory": "packages/create-zopassport"
+    },
+    "homepage": "https://github.com/ZoHouse/zopassport#readme",
+    "bugs": {
+        "url": "https://github.com/ZoHouse/zopassport/issues"
+    },
+    "engines": {
+        "node": ">=16.0.0"
+    }
+}

@@ -19,8 +19,20 @@ export interface ZoPassportConfig {
  * Generate new device credentials
  */
 function generateDeviceCredentials(): { deviceId: string; deviceSecret: string } {
-  const deviceId = `web-${Date.now()}-${Math.random().toString(36).substring(7)}`;
-  const deviceSecret = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+  let deviceId: string;
+  let deviceSecret: string;
+
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    deviceId = `web-${crypto.randomUUID()}`;
+    const bytes = new Uint8Array(24);
+    crypto.getRandomValues(bytes);
+    deviceSecret = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+  } else {
+    // Fallback for environments without Web Crypto API
+    deviceId = `web-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+    deviceSecret = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+  }
+
   return { deviceId, deviceSecret };
 }
 
