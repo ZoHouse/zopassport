@@ -9,7 +9,7 @@ export default defineConfig([
     splitting: false,
     sourcemap: true,
     clean: true,
-    external: ['react', 'react-dom', 'react-native', 'react-native-reanimated', 'react-native-svg', 'moment'],
+    external: ['react', 'react-dom', 'react-native', 'react-native-reanimated', 'react-native-svg'],
   },
   // React Web exports (web-compatible components)
   {
@@ -19,7 +19,7 @@ export default defineConfig([
     splitting: false,
     sourcemap: true,
     clean: false,
-    external: ['react', 'react-dom', 'react-native', 'react-native-reanimated', 'react-native-svg', 'moment'],
+    external: ['react', 'react-dom', 'react-native', 'react-native-reanimated', 'react-native-svg'],
     esbuildOptions(options) {
       options.jsx = 'automatic';
     },
@@ -32,7 +32,7 @@ export default defineConfig([
     splitting: false,
     sourcemap: true,
     clean: false,
-    external: ['react', 'react-dom', 'react-native', 'react-native-reanimated', 'react-native-svg', 'moment'],
+    external: ['react', 'react-dom', 'react-native', 'react-native-reanimated', 'react-native-svg'],
     esbuildOptions(options) {
       options.jsx = 'automatic';
     },

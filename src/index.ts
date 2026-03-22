@@ -20,6 +20,7 @@ export { ZoWallet } from './lib/api/wallet';
 export {
   LocalStorageAdapter,
   AsyncStorageAdapter,
+  MemoryStorageAdapter,
   STORAGE_KEYS,
   type StorageAdapter,
 } from './lib/utils/storage';
@@ -32,6 +33,16 @@ export * from './lib/utils/wallet';
 
 // Logger (for advanced debugging)
 export { logger } from './lib/utils/logger';
+
+// Errors
+export {
+  ZoSDKError,
+  ZoAuthError,
+  ZoNetworkError,
+  ZoValidationError,
+  ZoNotAuthenticatedError,
+  ZoConfigError,
+} from './lib/errors';
 
 // Types
 export * from './lib/types';

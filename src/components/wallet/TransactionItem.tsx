@@ -1,7 +1,6 @@
 // Transaction Item Component - Extracted from Zostel app
 import React, { memo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import moment from 'moment';
 import { ZoToken } from './ZoToken';
 import { walletStyles } from './styles/walletStyles';
 import { formatBalance, getTransactionColor } from '../../lib/utils/wallet';
@@ -30,7 +29,7 @@ export const TransactionItem: React.FC<TransactionItemProps> = memo(
           <Text style={styles.description}>{transaction.description}</Text>
           {showDate && transaction.claimed_at && (
             <Text style={styles.date}>
-              {moment(transaction.claimed_at).format('DD MMM hh:mm A')}
+              {new Date(transaction.claimed_at).toLocaleDateString('en-US', { day: '2-digit', month: 'short' }) + ' ' + new Date(transaction.claimed_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
             </Text>
           )}
         </View>

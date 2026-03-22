@@ -5,4 +5,5 @@ export { ZoApiClient, type ZoPassportConfig } from './client';
 export { ZoAuth } from './auth';
 export { ZoProfile } from './profile';
 export { ZoAvatar } from './avatar';
+export { ZoWallet } from './wallet';
 

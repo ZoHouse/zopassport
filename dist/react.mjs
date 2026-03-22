@@ -116,8 +116,17 @@ var LocalStorageAdapter = class {
 
 // src/lib/api/client.ts
 function generateDeviceCredentials() {
-  const deviceId = `web-${Date.now()}-${Math.random().toString(36).substring(7)}`;
-  const deviceSecret = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+  let deviceId;
+  let deviceSecret;
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    deviceId = `web-${crypto.randomUUID()}`;
+    const bytes = new Uint8Array(24);
+    crypto.getRandomValues(bytes);
+    deviceSecret = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+  } else {
+    deviceId = `web-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+    deviceSecret = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+  }
   return { deviceId, deviceSecret };
 }
 var ZoApiClient = class {
@@ -491,9 +500,11 @@ var ZoAvatar = class {
         onError?.("Avatar generation failed");
         return;
       }
-      setTimeout(poll, interval);
+      setTimeout(() => {
+        poll().catch((err) => onError?.(String(err)));
+      }, interval);
     };
-    poll();
+    poll().catch((err) => onError?.(String(err)));
   }
 };
 
@@ -584,7 +595,11 @@ var ZoWallet = class {
         logger.warn("RPC error:", result.error);
         return null;
       }
-      const rawBalance = BigInt(result.result || "0x0");
+      if (typeof result.result !== "string" || !result.result.startsWith("0x")) {
+        logger.warn("Invalid RPC response format:", result.result);
+        return null;
+      }
+      const rawBalance = BigInt(result.result);
       const balance = Number(rawBalance) / Math.pow(10, config.decimals);
       logger.debug(`On-chain balance fetched: ${balance} $Zo`);
       return balance;
@@ -670,12 +685,83 @@ var ZoWallet = class {
   }
 };
 
+// src/lib/errors.ts
+var ZoSDKError = class extends Error {
+  constructor(message, code) {
+    super(message);
+    this.name = "ZoSDKError";
+    this.code = code;
+  }
+};
+var ZoValidationError = class extends ZoSDKError {
+  constructor(message, field) {
+    super(message, "VALIDATION_ERROR");
+    this.name = "ZoValidationError";
+    this.field = field;
+  }
+};
+var ZoConfigError = class extends ZoSDKError {
+  constructor(message) {
+    super(message, "CONFIG_ERROR");
+    this.name = "ZoConfigError";
+  }
+};
+
+// src/lib/utils/validation.ts
+function validatePhoneNumber(phoneNumber) {
+  const cleaned = phoneNumber.replace(/\D/g, "");
+  if (!cleaned || cleaned.length < 7 || cleaned.length > 15) {
+    throw new ZoValidationError(
+      `Invalid phone number "${phoneNumber}". Must be 7-15 digits.`,
+      "phoneNumber"
+    );
+  }
+}
+function validateCountryCode(countryCode) {
+  const cleaned = countryCode.replace(/\D/g, "");
+  if (!cleaned || cleaned.length < 1 || cleaned.length > 4) {
+    throw new ZoValidationError(
+      `Invalid country code "${countryCode}". Must be 1-4 digits.`,
+      "countryCode"
+    );
+  }
+}
+function validateOTP(otp) {
+  const cleaned = otp.replace(/\D/g, "");
+  if (!cleaned || cleaned.length < 4 || cleaned.length > 8) {
+    throw new ZoValidationError(
+      "Invalid OTP. Must be 4-8 digits.",
+      "otp"
+    );
+  }
+}
+function validateConfig(config) {
+  if (!config.clientKey || typeof config.clientKey !== "string" || config.clientKey.trim() === "") {
+    throw new ZoConfigError(
+      'Missing or empty "clientKey". You must provide a valid client key to use the Zo Passport SDK. Request one from the Zo World team at https://zo.xyz/developers'
+    );
+  }
+}
+
 // src/ZoPassportSDK.ts
 var ZoPassportSDK = class {
+  /**
+   * Create a new SDK instance.
+   *
+   * @param config - SDK configuration. `clientKey` is required.
+   * @throws {ZoConfigError} if `clientKey` is missing or empty.
+   *
+   * @example
+   * ```ts
+   * const sdk = new ZoPassportSDK({ clientKey: 'your-key' });
+   * await sdk.ready(); // wait for session restore
+   * ```
+   */
   constructor(config) {
     this.refreshTimer = null;
     this._user = null;
     this._isAuthenticated = false;
+    validateConfig(config);
     if (config.debug) {
       logger.enable();
       logger.setLevel("debug");
@@ -699,15 +785,19 @@ var ZoPassportSDK = class {
     });
   }
   /**
-   * Wait for the SDK to be ready (session loaded from storage)
-   * Use this if you need to check isAuthenticated immediately after construction
+   * Wait for the SDK to finish loading any existing session from storage.
+   * Call this before checking {@link isAuthenticated} right after construction.
+   *
+   * @example
+   * ```ts
+   * await sdk.ready();
+   * if (sdk.isAuthenticated) { ... }
+   * ```
    */
   async ready() {
     return this._readyPromise;
   }
-  // =====================
-  // Session Management
-  // =====================
+  // ── Session Management ───────────────────────────────────
   async loadSession() {
     try {
       const userJson = await this.storage.getItem(STORAGE_KEYS.USER);
@@ -742,9 +832,7 @@ var ZoPassportSDK = class {
     this._user = null;
     this._isAuthenticated = false;
   }
-  // =====================
-  // Auto Token Refresh
-  // =====================
+  // ── Auto Token Refresh ───────────────────────────────────
   startAutoRefresh(interval) {
     this.refreshTimer = setInterval(async () => {
       await this.refreshTokenIfNeeded();
@@ -773,19 +861,41 @@ var ZoPassportSDK = class {
       }
     }
   }
-  // =====================
-  // Public API
-  // =====================
+  // ── Public API ───────────────────────────────────────────
+  /** The currently authenticated user, or `null` if not logged in. */
   get user() {
     return this._user;
   }
+  /** Whether the user has an active session. */
   get isAuthenticated() {
     return this._isAuthenticated;
   }
   /**
-   * Complete phone authentication flow
+   * Authenticate via phone OTP. This is the high-level login method that
+   * verifies the OTP, saves the session, and sets up the wallet.
+   *
+   * @param countryCode - Country dial code, e.g. `"91"` for India, `"1"` for US.
+   * @param phoneNumber - Phone number without country code, e.g. `"9876543210"`.
+   * @param otp - The OTP code received via SMS.
+   * @returns Object with `success`, `user` (on success), or `error` (on failure).
+   * @throws {ZoValidationError} if any input is invalid.
+   *
+   * @example
+   * ```ts
+   * // Step 1: Send OTP
+   * await sdk.auth.sendOTP('91', '9876543210');
+   *
+   * // Step 2: Verify & login
+   * const result = await sdk.loginWithPhone('91', '9876543210', '123456');
+   * if (result.success) {
+   *   console.log('Logged in as', result.user.first_name);
+   * }
+   * ```
    */
   async loginWithPhone(countryCode, phoneNumber, otp) {
+    validateCountryCode(countryCode);
+    validatePhoneNumber(phoneNumber);
+    validateOTP(otp);
     const result = await this.auth.verifyOTP(countryCode, phoneNumber, otp);
     if (result.success && result.data) {
       await this.saveSession(result.data);
@@ -797,14 +907,28 @@ var ZoPassportSDK = class {
     return { success: false, error: result.error };
   }
   /**
-   * Logout and clear session
+   * Log out the current user. Clears tokens, user data, and stops auto-refresh.
+   *
+   * @example
+   * ```ts
+   * await sdk.logout();
+   * console.log(sdk.isAuthenticated); // false
+   * ```
    */
   async logout() {
     await this.clearSession();
     this.stopAutoRefresh();
   }
   /**
-   * Get current user profile
+   * Fetch the current user's profile from the API and update the local cache.
+   *
+   * @returns The user profile, or `null` if not authenticated or fetch failed.
+   *
+   * @example
+   * ```ts
+   * const profile = await sdk.getProfile();
+   * console.log(profile?.first_name, profile?.wallet_address);
+   * ```
    */
   async getProfile() {
     const accessToken = await this.storage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
@@ -821,7 +945,19 @@ var ZoPassportSDK = class {
     return null;
   }
   /**
-   * Update user profile
+   * Update the authenticated user's profile. Supports partial updates.
+   *
+   * @param updates - Fields to update. All fields are optional.
+   * @returns Object with `success`, `profile` (on success), or `error` (on failure).
+   *
+   * @example
+   * ```ts
+   * const result = await sdk.updateProfile({
+   *   first_name: 'Samurai',
+   *   bio: 'Explorer',
+   *   body_type: 'bro',
+   * });
+   * ```
    */
   async updateProfile(updates) {
     const accessToken = await this.storage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
@@ -835,7 +971,19 @@ var ZoPassportSDK = class {
     return { success: false, error: result.error };
   }
   /**
-   * Generate avatar
+   * Generate an AI avatar for the current user.
+   * Starts generation and polls until completion or failure.
+   *
+   * @param bodyType - Avatar body type: `"bro"` or `"bae"`.
+   * @returns Object with `success`, `avatarUrl` (on success), or `error` (on failure).
+   *
+   * @example
+   * ```ts
+   * const result = await sdk.generateAvatar('bro');
+   * if (result.success) {
+   *   console.log('Avatar URL:', result.avatarUrl);
+   * }
+   * ```
    */
   async generateAvatar(bodyType) {
     const accessToken = await this.storage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
@@ -856,19 +1004,38 @@ var ZoPassportSDK = class {
     });
   }
   /**
-   * Get wallet balance
+   * Get the user's $Zo token balance.
+   * Tries on-chain balance first (if wallet address is set), then falls back to API.
+   *
+   * @returns The balance as a number.
+   *
+   * @example
+   * ```ts
+   * const balance = await sdk.getWalletBalance();
+   * console.log(`Balance: ${balance} $Zo`);
+   * ```
    */
   async getWalletBalance() {
     return this.wallet.getBalance();
   }
   /**
-   * Get wallet transactions
+   * Get the user's transaction history with pagination.
+   *
+   * @param page - Page number for pagination (optional).
+   * @returns Object with `transactions` array, `count`, `next`, and `previous` cursor URLs.
+   *
+   * @example
+   * ```ts
+   * const { transactions, count } = await sdk.getWalletTransactions();
+   * transactions.forEach(tx => console.log(tx.description, tx.amount));
+   * ```
    */
   async getWalletTransactions(page) {
     return this.wallet.getTransactions(page);
   }
   /**
-   * Cleanup
+   * Destroy the SDK instance. Stops auto-refresh timers.
+   * Call this when unmounting your app or switching users.
    */
   destroy() {
     this.stopAutoRefresh();
@@ -1778,17 +1945,6 @@ var WalletFullPage = ({
       ] })
     ] })
   ] });
-};
-
-// assets/wallet/constants.ts
-var WALLET_DIMENSIONS = {
-  cardAspectRatio: 312 / 200,
-  coverAspectRatio: 312 / 120,
-  cardBorderRadius: 16,
-  innerBorderRadius: 12,
-  avatarSize: 32,
-  tokenSize: 16,
-  tokenVideoSize: 24
 };
 
 // assets/index.ts

@@ -378,31 +378,88 @@ declare class ZoWallet {
     }>;
 }
 
+/**
+ * @module ZoPassportSDK
+ * Main SDK class — single entry point for the Zo Passport experience.
+ *
+ * @example
+ * ```ts
+ * import { ZoPassportSDK } from 'zopassport';
+ *
+ * const sdk = new ZoPassportSDK({ clientKey: 'your-client-key' });
+ * await sdk.ready();
+ *
+ * // Send OTP
+ * await sdk.auth.sendOTP('91', '9876543210');
+ *
+ * // Verify OTP & login
+ * const { success, user } = await sdk.loginWithPhone('91', '9876543210', '123456');
+ * ```
+ */
+
+/** Configuration options for {@link ZoPassportSDK}. */
 interface ZoPassportSDKConfig extends ZoPassportConfig {
-    /** Optional: Provide a custom storage adapter (default: LocalStorageAdapter) */
+    /** Custom storage adapter. Defaults to `LocalStorageAdapter` (web) or pass `AsyncStorageAdapter` for React Native. */
     storageAdapter?: StorageAdapter;
-    /** Optional: Enable auto token refresh (default: true) */
+    /** Enable automatic access-token refresh. Default: `true`. */
     autoRefresh?: boolean;
-    /** Optional: Token refresh interval in ms (default: 60000 = 1 minute) */
+    /** Token refresh check interval in milliseconds. Default: `60000` (1 min). */
     refreshInterval?: number;
-    /** Optional: Enable debug logging (default: false) */
+    /** Enable debug logging to the console. Default: `false`. */
     debug?: boolean;
 }
+/**
+ * The main Zo Passport SDK.
+ *
+ * Provides authentication, profile management, avatar generation, and wallet
+ * functionality through a single, easy-to-use API.
+ *
+ * @example
+ * ```ts
+ * const sdk = new ZoPassportSDK({
+ *   clientKey: 'your-key',
+ *   autoRefresh: true,
+ *   debug: false,
+ * });
+ * ```
+ */
 declare class ZoPassportSDK {
     private client;
     private storage;
     private refreshTimer;
     private _readyPromise;
+    /** Low-level auth API. Use {@link loginWithPhone} for the high-level flow. */
     auth: ZoAuth$1;
+    /** Low-level profile API. Use {@link getProfile} / {@link updateProfile} instead. */
     profile: ZoProfile;
+    /** Low-level avatar API. Use {@link generateAvatar} for the high-level flow. */
     avatar: ZoAvatar$1;
+    /** Low-level wallet API. Use {@link getWalletBalance} / {@link getWalletTransactions} instead. */
     wallet: ZoWallet;
     private _user;
     private _isAuthenticated;
+    /**
+     * Create a new SDK instance.
+     *
+     * @param config - SDK configuration. `clientKey` is required.
+     * @throws {ZoConfigError} if `clientKey` is missing or empty.
+     *
+     * @example
+     * ```ts
+     * const sdk = new ZoPassportSDK({ clientKey: 'your-key' });
+     * await sdk.ready(); // wait for session restore
+     * ```
+     */
     constructor(config: ZoPassportSDKConfig);
     /**
-     * Wait for the SDK to be ready (session loaded from storage)
-     * Use this if you need to check isAuthenticated immediately after construction
+     * Wait for the SDK to finish loading any existing session from storage.
+     * Call this before checking {@link isAuthenticated} right after construction.
+     *
+     * @example
+     * ```ts
+     * await sdk.ready();
+     * if (sdk.isAuthenticated) { ... }
+     * ```
      */
     ready(): Promise<void>;
     private loadSession;
@@ -411,10 +468,31 @@ declare class ZoPassportSDK {
     private startAutoRefresh;
     private stopAutoRefresh;
     private refreshTokenIfNeeded;
+    /** The currently authenticated user, or `null` if not logged in. */
     get user(): ZoUser | null;
+    /** Whether the user has an active session. */
     get isAuthenticated(): boolean;
     /**
-     * Complete phone authentication flow
+     * Authenticate via phone OTP. This is the high-level login method that
+     * verifies the OTP, saves the session, and sets up the wallet.
+     *
+     * @param countryCode - Country dial code, e.g. `"91"` for India, `"1"` for US.
+     * @param phoneNumber - Phone number without country code, e.g. `"9876543210"`.
+     * @param otp - The OTP code received via SMS.
+     * @returns Object with `success`, `user` (on success), or `error` (on failure).
+     * @throws {ZoValidationError} if any input is invalid.
+     *
+     * @example
+     * ```ts
+     * // Step 1: Send OTP
+     * await sdk.auth.sendOTP('91', '9876543210');
+     *
+     * // Step 2: Verify & login
+     * const result = await sdk.loginWithPhone('91', '9876543210', '123456');
+     * if (result.success) {
+     *   console.log('Logged in as', result.user.first_name);
+     * }
+     * ```
      */
     loginWithPhone(countryCode: string, phoneNumber: string, otp: string): Promise<{
         success: boolean;
@@ -422,15 +500,41 @@ declare class ZoPassportSDK {
         error?: string;
     }>;
     /**
-     * Logout and clear session
+     * Log out the current user. Clears tokens, user data, and stops auto-refresh.
+     *
+     * @example
+     * ```ts
+     * await sdk.logout();
+     * console.log(sdk.isAuthenticated); // false
+     * ```
      */
     logout(): Promise<void>;
     /**
-     * Get current user profile
+     * Fetch the current user's profile from the API and update the local cache.
+     *
+     * @returns The user profile, or `null` if not authenticated or fetch failed.
+     *
+     * @example
+     * ```ts
+     * const profile = await sdk.getProfile();
+     * console.log(profile?.first_name, profile?.wallet_address);
+     * ```
      */
     getProfile(): Promise<ZoUser | null>;
     /**
-     * Update user profile
+     * Update the authenticated user's profile. Supports partial updates.
+     *
+     * @param updates - Fields to update. All fields are optional.
+     * @returns Object with `success`, `profile` (on success), or `error` (on failure).
+     *
+     * @example
+     * ```ts
+     * const result = await sdk.updateProfile({
+     *   first_name: 'Samurai',
+     *   bio: 'Explorer',
+     *   body_type: 'bro',
+     * });
+     * ```
      */
     updateProfile(updates: {
         first_name?: string;
@@ -445,7 +549,19 @@ declare class ZoPassportSDK {
         error?: string;
     }>;
     /**
-     * Generate avatar
+     * Generate an AI avatar for the current user.
+     * Starts generation and polls until completion or failure.
+     *
+     * @param bodyType - Avatar body type: `"bro"` or `"bae"`.
+     * @returns Object with `success`, `avatarUrl` (on success), or `error` (on failure).
+     *
+     * @example
+     * ```ts
+     * const result = await sdk.generateAvatar('bro');
+     * if (result.success) {
+     *   console.log('Avatar URL:', result.avatarUrl);
+     * }
+     * ```
      */
     generateAvatar(bodyType: 'bro' | 'bae'): Promise<{
         success: boolean;
@@ -453,11 +569,29 @@ declare class ZoPassportSDK {
         error?: string;
     }>;
     /**
-     * Get wallet balance
+     * Get the user's $Zo token balance.
+     * Tries on-chain balance first (if wallet address is set), then falls back to API.
+     *
+     * @returns The balance as a number.
+     *
+     * @example
+     * ```ts
+     * const balance = await sdk.getWalletBalance();
+     * console.log(`Balance: ${balance} $Zo`);
+     * ```
      */
     getWalletBalance(): Promise<number>;
     /**
-     * Get wallet transactions
+     * Get the user's transaction history with pagination.
+     *
+     * @param page - Page number for pagination (optional).
+     * @returns Object with `transactions` array, `count`, `next`, and `previous` cursor URLs.
+     *
+     * @example
+     * ```ts
+     * const { transactions, count } = await sdk.getWalletTransactions();
+     * transactions.forEach(tx => console.log(tx.description, tx.amount));
+     * ```
      */
     getWalletTransactions(page?: number): Promise<{
         transactions: Transaction[];
@@ -466,7 +600,8 @@ declare class ZoPassportSDK {
         count: number;
     }>;
     /**
-     * Cleanup
+     * Destroy the SDK instance. Stops auto-refresh timers.
+     * Call this when unmounting your app or switching users.
      */
     destroy(): void;
 }

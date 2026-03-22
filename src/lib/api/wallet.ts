@@ -104,14 +104,20 @@ export class ZoWallet {
             });
 
             const result = await response.json();
-            
+
             if (result.error) {
                 logger.warn('RPC error:', result.error);
                 return null;
             }
 
+            // Validate RPC response format
+            if (typeof result.result !== 'string' || !result.result.startsWith('0x')) {
+                logger.warn('Invalid RPC response format:', result.result);
+                return null;
+            }
+
             // Parse the hex balance
-            const rawBalance = BigInt(result.result || '0x0');
+            const rawBalance = BigInt(result.result);
             const balance = Number(rawBalance) / Math.pow(10, config.decimals);
             
             logger.debug(`On-chain balance fetched: ${balance} $Zo`);

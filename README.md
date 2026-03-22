@@ -1,64 +1,165 @@
-# 🌍 Zo Passport SDK
+# Zo Passport SDK
 
-> **One line reputation to rule the world**
+> Phone OTP &rarr; Avatar &rarr; Passport &rarr; Wallet
+
+Complete authentication, onboarding, and wallet integration for [Zo World](https://zo.xyz) applications.
+
+> **Important — Client Key Required**
 >
-> Phone OTP → Avatar → Passport → Wallet
-
-Complete authentication, onboarding, and passport experience for Zo World applications.
-
----
-
-## 🚀 Quick Start - Single Command!
-
-```bash
-# Create a new Zo Passport app
-npx create-zopassport my-app
-
-cd my-app
-cp .env.example .env    # Add your VITE_ZO_CLIENT_KEY
-npm install && npm run dev
-```
-
-**That's it!** 🎉 Your full Zo Passport app is running at `http://localhost:5173`
-
-🔑 Get your client key at: **[https://zo.xyz/developers](https://zo.xyz/developers)**
+> You **must** obtain a client key from the Zo World team before using this SDK.
+> The SDK will throw a `ZoConfigError` at initialization if the key is missing.
+> Request yours at **[zo.xyz/developers](https://zo.xyz/developers)**.
 
 ---
 
-## 📦 What's Included
+## Table of Contents
 
-When you run `npx create-zopassport`, you get:
-
-✅ **Complete Demo App** - Full working phone → passport → wallet flow  
-✅ **All Dependencies** - React, Vite, TypeScript pre-configured  
-✅ **All Assets** - Images, videos, icons bundled  
-✅ **Environment Template** - Just add your client key  
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [SDK API Reference](#sdk-api-reference)
+- [React Integration](#react-integration)
+- [React Native](#react-native)
+- [Error Handling](#error-handling)
+- [Storage Adapters](#storage-adapters)
+- [TypeScript](#typescript)
+- [Testing](#testing)
+- [Vite Configuration](#vite-configuration)
+- [Contributing](#contributing)
+- [License](#license)
 
 ---
 
-## 🎯 Use as SDK in Existing Apps
-
-Want to integrate into your existing app? Install the SDK:
+## Installation
 
 ```bash
 npm install zopassport
 ```
 
-### 1. Initialize the SDK
+Or scaffold a complete demo app instantly:
 
-```typescript
+```bash
+npx create-zopassport my-app
+cd my-app
+cp .env.example .env   # paste your client key
+npm install && npm run dev
+```
+
+---
+
+## Quick Start
+
+```ts
 import { ZoPassportSDK } from 'zopassport';
 
 const sdk = new ZoPassportSDK({
-  clientKey: 'your-client-key',
-  autoRefresh: true,
+  clientKey: 'your-client-key',   // required
+  autoRefresh: true,               // auto-refresh tokens (default: true)
 });
+
+// Wait for any existing session to load from storage
+await sdk.ready();
+
+// Step 1 — Send OTP
+await sdk.auth.sendOTP('91', '9876543210');
+
+// Step 2 — Verify OTP & log in
+const { success, user, error } = await sdk.loginWithPhone('91', '9876543210', '123456');
+
+if (success) {
+  console.log('Welcome', user.first_name);
+}
 ```
 
-### 2. React Integration
+---
+
+## SDK API Reference
+
+### `new ZoPassportSDK(config)`
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `clientKey` | `string` | *required* | Your Zo API client key |
+| `baseUrl` | `string` | `https://api.io.zo.xyz` | API base URL |
+| `timeout` | `number` | `10000` | Request timeout (ms) |
+| `storageAdapter` | `StorageAdapter` | `LocalStorageAdapter` | Token persistence layer |
+| `autoRefresh` | `boolean` | `true` | Auto-refresh tokens before expiry |
+| `refreshInterval` | `number` | `60000` | Token refresh check interval (ms) |
+| `debug` | `boolean` | `false` | Log debug info to console |
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `sdk.user` | `ZoUser \| null` | Current authenticated user |
+| `sdk.isAuthenticated` | `boolean` | Whether a session is active |
+
+### Methods
+
+#### `sdk.ready(): Promise<void>`
+Wait for session restoration from storage. Call before checking `isAuthenticated`.
+
+#### `sdk.loginWithPhone(countryCode, phoneNumber, otp): Promise<Result>`
+Full OTP verification + session save + wallet setup.
+
+```ts
+const { success, user, error } = await sdk.loginWithPhone('91', '9876543210', '123456');
+```
+
+#### `sdk.logout(): Promise<void>`
+Clear all tokens, user data, and stop auto-refresh.
+
+#### `sdk.getProfile(): Promise<ZoUser | null>`
+Fetch the latest profile from the API.
+
+#### `sdk.updateProfile(updates): Promise<Result>`
+Partial profile update.
+
+```ts
+await sdk.updateProfile({ first_name: 'Samurai', bio: 'Explorer', body_type: 'bro' });
+```
+
+#### `sdk.generateAvatar(bodyType): Promise<Result>`
+Generate an AI avatar. Polls until completion.
+
+```ts
+const { success, avatarUrl } = await sdk.generateAvatar('bro');
+```
+
+#### `sdk.getWalletBalance(): Promise<number>`
+Get $Zo token balance (on-chain with API fallback).
+
+#### `sdk.getWalletTransactions(page?): Promise<TransactionsResult>`
+Paginated transaction history.
+
+#### `sdk.destroy(): void`
+Stop timers and clean up. Call on unmount.
+
+### Low-Level APIs
+
+The SDK also exposes module-level APIs for advanced use:
+
+```ts
+sdk.auth.sendOTP(countryCode, phoneNumber)
+sdk.auth.verifyOTP(countryCode, phoneNumber, otp)
+sdk.auth.refreshAccessToken(refreshToken)
+sdk.auth.checkLoginStatus(accessToken)
+sdk.profile.getProfile(accessToken)
+sdk.profile.updateProfile(accessToken, updates)
+sdk.avatar.generateAvatar(accessToken, bodyType)
+sdk.avatar.getAvatarStatus(accessToken, taskId)
+sdk.wallet.setWalletAddress(address, network)
+sdk.wallet.getBalance()
+sdk.wallet.getTransactions(page)
+```
+
+---
+
+## React Integration
+
+### Provider Setup
 
 ```tsx
-import { ZoPassportProvider, useZoPassport, ZoLanding, ZoPassportCard } from 'zopassport/react';
+import { ZoPassportProvider, useZoPassport } from 'zopassport/react';
 
 function App() {
   return (
@@ -67,135 +168,62 @@ function App() {
     </ZoPassportProvider>
   );
 }
-
-function YourApp() {
-  const { isAuthenticated, user, sendOTP, verifyOTP } = useZoPassport();
-
-  if (!isAuthenticated) {
-    return (
-      <ZoLanding
-        onAuthSuccess={(userId, user) => console.log('Logged in!', user)}
-        sendOTP={sendOTP}
-        verifyOTP={verifyOTP}
-      />
-    );
-  }
-
-  return (
-    <ZoPassportCard
-      profile={{
-        avatar: user.avatar?.image,
-        name: user.first_name,
-        isFounder: user.membership === 'founder',
-      }}
-      completion={{ done: 8, total: 10 }}
-    />
-  );
-}
 ```
 
----
-
-## Features
-
-- **Authentication** - Phone number + OTP, auto token refresh, session persistence
-- **Avatar Generation** - Choose body type (Bro/Bae), AI-powered generation
-- **Passport Card** - Leather texture design, Founder/Citizen variants
-- **Onboarding Flow** - Nickname, location, avatar preview
-- **Wallet** - Balance, transaction history
-
----
-
-## Components
-
-### `<ZoLanding />`
-Full-screen landing page with video background and auth modal.
+### `useZoPassport()` Hook
 
 ```tsx
-<ZoLanding
-  onAuthSuccess={(userId, user) => {}}
-  sendOTP={async (code, phone) => sdk.auth.sendOTP(code, phone)}
-  verifyOTP={async (code, phone, otp) => sdk.auth.verifyOTP(code, phone, otp)}
-/>
+const {
+  sdk,              // ZoPassportSDK instance
+  user,             // ZoUser | null
+  isAuthenticated,  // boolean
+  isLoading,        // boolean — true while restoring session
+  sendOTP,          // (countryCode, phone) => Promise
+  verifyOTP,        // (countryCode, phone, otp) => Promise
+  logout,           // () => Promise
+  refreshProfile,   // () => Promise
+} = useZoPassport();
 ```
 
-### `<ZoOnboarding />`
-Complete onboarding flow component.
+### Ready-Made Components
 
 ```tsx
-<ZoOnboarding
-  onComplete={(data) => console.log(data)}
-  updateProfile={(updates) => sdk.updateProfile(updates)}
-  getProfile={() => sdk.getProfile()}
-/>
+import {
+  ZoLanding,        // Full-screen landing with video + auth modal
+  ZoAuth,           // Standalone phone OTP component
+  ZoOnboarding,     // Onboarding flow (name, location, avatar)
+  ZoPassportCard,   // Passport display card
+  ZoAvatar,         // Avatar display/generation
+  WalletScreen,     // Full wallet page
+  WalletCard,       // Wallet balance card
+} from 'zopassport/react';
 ```
 
-### `<ZoPassportCard />`
-Passport card display component.
+### Additional Hooks
 
 ```tsx
-<ZoPassportCard
-  profile={{ avatar: 'https://...', name: 'Samurai', isFounder: true }}
-  completion={{ done: 8, total: 10 }}
-/>
-```
+import { useAuth, useProfile, useAvatar, useWallet } from 'zopassport/react';
 
-### `<ZoAuth />`
-Standalone phone OTP authentication component.
+// useAuth — manages OTP flow state
+const { otpSent, sendOTP, verifyOTP, logout } = useAuth();
 
-```tsx
-<ZoAuth
-  onSuccess={(userId, user) => {}}
-  onClose={() => {}}
-  sendOTP={sendOTP}
-  verifyOTP={verifyOTP}
-/>
-```
+// useProfile — profile data + completion tracking
+const { user, completion, isFounder, updateProfile } = useProfile();
 
----
-
-## Hooks
-
-### `useZoPassport()`
-```tsx
-const { sdk, user, isAuthenticated, isLoading, sendOTP, verifyOTP, logout, refreshProfile } = useZoPassport();
-```
-
-### `useProfile()`
-```tsx
-const { user, completion, isFounder, updateProfile, reload } = useProfile();
-```
-
-### `useAvatar()`
-```tsx
+// useAvatar — avatar generation state
 const { avatarUrl, isGenerating, generateAvatar } = useAvatar();
+
+// useWallet — balance + transactions
+const { balance, transactions, isLoading, refetch } = useWallet(apiClient);
 ```
 
 ---
 
-## Wallet Integration
+## React Native
 
-```tsx
-import { WalletScreen, WalletCard } from 'zopassport/react';
-
-// Full wallet screen
-<WalletScreen onBack={() => console.log('Back')} />
-
-// Wallet card widget
-<WalletCard balance={100} user={user} isOpen={isOpen} onToggle={() => setIsOpen(!isOpen)} />
-```
-
----
-
-## Storage Adapters
-
-### Web (Default)
-Uses `localStorage` automatically.
-
-### React Native
-```tsx
-import AsyncStorage from '@react-native-async-storage/async-storage';
+```ts
 import { ZoPassportSDK, AsyncStorageAdapter } from 'zopassport';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const sdk = new ZoPassportSDK({
   clientKey: 'your-key',
@@ -203,21 +231,108 @@ const sdk = new ZoPassportSDK({
 });
 ```
 
+React Native components are available via:
+
+```ts
+import { WalletScreen, WalletCard, TransactionList } from 'zopassport/react-native';
+```
+
+---
+
+## Error Handling
+
+The SDK provides typed error classes for precise error handling:
+
+```ts
+import {
+  ZoSDKError,           // Base — catch all SDK errors
+  ZoConfigError,        // Invalid config (missing clientKey)
+  ZoValidationError,    // Invalid input (bad phone, OTP)
+  ZoAuthError,          // Authentication failure
+  ZoNetworkError,       // Network/connectivity issues
+  ZoNotAuthenticatedError, // Action requires login
+} from 'zopassport';
+
+try {
+  await sdk.loginWithPhone('91', '123', '1234');
+} catch (err) {
+  if (err instanceof ZoValidationError) {
+    console.log(`Invalid ${err.field}: ${err.message}`);
+  }
+}
+```
+
+All errors extend `ZoSDKError` which extends `Error`, so `instanceof` checks work as expected.
+
+---
+
+## Storage Adapters
+
+| Adapter | Environment | Import |
+|---------|-------------|--------|
+| `LocalStorageAdapter` | Web (default) | `'zopassport'` |
+| `AsyncStorageAdapter` | React Native | `'zopassport'` |
+| `MemoryStorageAdapter` | SSR / Testing | `'zopassport'` |
+
+Implement the `StorageAdapter` interface for custom storage:
+
+```ts
+interface StorageAdapter {
+  getItem(key: string): Promise<string | null>;
+  setItem(key: string, value: string): Promise<void>;
+  removeItem(key: string): Promise<void>;
+}
+```
+
 ---
 
 ## TypeScript
 
-Full TypeScript support:
+Full type exports:
 
-```typescript
-import type { ZoUser, ZoAuthResponse, ZoProfileUpdatePayload, ZoPassportConfig } from 'zopassport';
+```ts
+import type {
+  ZoUser,
+  ZoAuthResponse,
+  ZoProfileUpdatePayload,
+  ZoPassportConfig,
+  Transaction,
+  StorageAdapter,
+} from 'zopassport';
+```
+
+---
+
+## Testing
+
+```bash
+npm test                 # all tests
+npm run test:unit        # unit tests only
+npm run test:integration # integration tests
+npm run test:e2e         # end-to-end flows
+npm run test:coverage    # with coverage report
+npm run test:watch       # watch mode
+```
+
+Use `MemoryStorageAdapter` in tests:
+
+```ts
+import { ZoPassportSDK, MemoryStorageAdapter } from 'zopassport';
+
+const sdk = new ZoPassportSDK({
+  clientKey: 'test-key',
+  storageAdapter: new MemoryStorageAdapter(),
+  autoRefresh: false,
+});
 ```
 
 ---
 
 ## Vite Configuration
 
-```typescript
+If using React Native Web components in a Vite project:
+
+```ts
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
@@ -237,6 +352,12 @@ export default defineConfig({
 
 ---
 
+## Contributing
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for development setup and guidelines.
+
+---
+
 ## License
 
-MIT © Zo World Team
+[MIT](./LICENSE) &copy; Zo World Team
