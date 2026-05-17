@@ -667,21 +667,21 @@ interface ZoAvatarProps {
 declare const ZoAvatar: React.FC<ZoAvatarProps>;
 
 interface PhoneInputProps {
-    /** Current phone number value */
+    /** Current phone number value (digits only). */
     value: string;
-    /** Current country code (without +) */
+    /** Current country code: either dial code ("91") or ISO ("IN"). */
     countryCode: string;
-    /** Callback when phone number changes */
+    /** Callback when phone number changes. */
     onChange: (phone: string) => void;
-    /** Callback when country code changes */
+    /** Callback when country changes. Emits the dial code (e.g. "91"). */
     onCountryChange: (code: string) => void;
-    /** Placeholder text */
+    /** Placeholder text. */
     placeholder?: string;
-    /** Disabled state */
+    /** Disabled state. */
     disabled?: boolean;
-    /** Error message */
+    /** Error message. */
     error?: string;
-    /** Additional CSS class */
+    /** Additional CSS class. */
     className?: string;
 }
 declare const PhoneInput: React.FC<PhoneInputProps>;

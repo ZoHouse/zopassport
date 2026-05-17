@@ -417,117 +417,44 @@ declare class ZoWallet {
     }>;
 }
 
-declare const COUNTRY_CODES: readonly [{
-    readonly code: "1";
-    readonly country: "US";
-    readonly flag: "🇺🇸";
-    readonly name: "United States";
-}, {
-    readonly code: "91";
-    readonly country: "IN";
-    readonly flag: "🇮🇳";
-    readonly name: "India";
-}, {
-    readonly code: "44";
-    readonly country: "GB";
-    readonly flag: "🇬🇧";
-    readonly name: "United Kingdom";
-}, {
-    readonly code: "86";
-    readonly country: "CN";
-    readonly flag: "🇨🇳";
-    readonly name: "China";
-}, {
-    readonly code: "81";
-    readonly country: "JP";
-    readonly flag: "🇯🇵";
-    readonly name: "Japan";
-}, {
-    readonly code: "82";
-    readonly country: "KR";
-    readonly flag: "🇰🇷";
-    readonly name: "South Korea";
-}, {
-    readonly code: "33";
-    readonly country: "FR";
-    readonly flag: "🇫🇷";
-    readonly name: "France";
-}, {
-    readonly code: "49";
-    readonly country: "DE";
-    readonly flag: "🇩🇪";
-    readonly name: "Germany";
-}, {
-    readonly code: "7";
-    readonly country: "RU";
-    readonly flag: "🇷🇺";
-    readonly name: "Russia";
-}, {
-    readonly code: "55";
-    readonly country: "BR";
-    readonly flag: "🇧🇷";
-    readonly name: "Brazil";
-}, {
-    readonly code: "61";
-    readonly country: "AU";
-    readonly flag: "🇦🇺";
-    readonly name: "Australia";
-}, {
-    readonly code: "65";
-    readonly country: "SG";
-    readonly flag: "🇸🇬";
-    readonly name: "Singapore";
-}, {
-    readonly code: "971";
-    readonly country: "AE";
-    readonly flag: "🇦🇪";
-    readonly name: "UAE";
-}, {
-    readonly code: "966";
-    readonly country: "SA";
-    readonly flag: "🇸🇦";
-    readonly name: "Saudi Arabia";
-}, {
-    readonly code: "62";
-    readonly country: "ID";
-    readonly flag: "🇮🇩";
-    readonly name: "Indonesia";
-}, {
-    readonly code: "60";
-    readonly country: "MY";
-    readonly flag: "🇲🇾";
-    readonly name: "Malaysia";
-}, {
-    readonly code: "66";
-    readonly country: "TH";
-    readonly flag: "🇹🇭";
-    readonly name: "Thailand";
-}, {
-    readonly code: "84";
-    readonly country: "VN";
-    readonly flag: "🇻🇳";
-    readonly name: "Vietnam";
-}, {
-    readonly code: "63";
-    readonly country: "PH";
-    readonly flag: "🇵🇭";
-    readonly name: "Philippines";
-}, {
-    readonly code: "31";
-    readonly country: "NL";
-    readonly flag: "🇳🇱";
-    readonly name: "Netherlands";
-}];
+interface Country {
+    /** Dial code without the leading `+` (e.g. "1", "91", "971"). */
+    code: string;
+    /** ISO 3166-1 alpha-2 country code (e.g. "US", "IN", "AE"). */
+    country: string;
+    /** Flag emoji derived from the ISO code. */
+    flag: string;
+    /** Human-readable English country name. */
+    name: string;
+}
 /**
- * Format phone number for display
- * e.g., "5551234567" → "555-123-4567"
+ * Full list of countries supported by libphonenumber-js (mobile metadata).
+ * Sorted alphabetically by English country name. Shape kept stable for
+ * backward compatibility with prior `COUNTRY_CODES` consumers.
  */
-declare function formatPhoneNumber(phone: string): string;
+declare const COUNTRY_CODES: readonly Country[];
 /**
- * Parse phone number to clean digits only
- * Removes all non-digit characters
+ * Lookup country by dial code. If multiple countries share a dial code
+ * (e.g. US/CA share "1"), returns the first match in alphabetical order.
  */
+declare function getCountryByDialCode(code: string): Country | undefined;
+/** Lookup country by ISO 3166-1 alpha-2 code. */
+declare function getCountryByIso(iso: string): Country | undefined;
+/**
+ * Format a phone number for display.
+ * If a country (ISO or dial code) is supplied, uses libphonenumber-js's
+ * national formatting. Falls back to dash grouping for unknown input.
+ */
+declare function formatPhoneNumber(phone: string, country?: string): string;
+/** Parse phone input down to digits only. */
 declare function parsePhoneNumber(phone: string): string;
+/**
+ * Validate a phone number against country rules. If no country is
+ * supplied, falls back to a 7-15 digit E.164 length check.
+ */
+declare function isValidPhoneNumber(phone: string, country?: string): boolean;
+/** Format a number as it is typed, given a country. */
+declare function formatAsYouType(phone: string, country: string): string;
 
 /**
  * Format balance number with commas
@@ -979,4 +906,4 @@ declare const CULTURES: readonly [{
 }];
 type CultureId = typeof CULTURES[number]['id'];
 
-export { ASSETS, AsyncStorageAdapter, type BalanceResponse, COUNTRY_CODES, CULTURES, CULTURE_STICKERS, type CultureId, type FormattedTransaction, LocalStorageAdapter, MemoryStorageAdapter, type MovingShineProps, STORAGE_KEYS, type StorageAdapter, type Transaction, type TransactionItemProps, type TransactionListProps, type TransactionsResponse, type WalletBalance, type WalletCardProps, type WalletScreenProps, type WalletUser, ZoApiClient, ZoAuth, ZoAuthError, type ZoAuthOTPRequest, type ZoAuthOTPVerifyRequest, type ZoAuthResponse, ZoAvatar, type ZoAvatarGenerateRequest, type ZoAvatarGenerateResponse, type ZoAvatarStatusResponse, ZoConfigError, type ZoErrorResponse, ZoNetworkError, ZoNotAuthenticatedError, type ZoPassportCompletion, type ZoPassportConfig, type ZoPassportProfile, ZoPassportSDK, ZoProfile, type ZoProfileResponse, type ZoProfileUpdatePayload, ZoSDKError, type ZoTokenBalanceResponse, type ZoTokenRefreshResponse, type ZoUser, ZoValidationError, ZoWallet, formatBalance, formatBalanceShort, formatNickname, formatPhoneNumber, formatTransactionAmount, formatWalletAddress, getTransactionColor, logger, parsePhoneNumber };
+export { ASSETS, AsyncStorageAdapter, type BalanceResponse, COUNTRY_CODES, CULTURES, CULTURE_STICKERS, type Country, type CultureId, type FormattedTransaction, LocalStorageAdapter, MemoryStorageAdapter, type MovingShineProps, STORAGE_KEYS, type StorageAdapter, type Transaction, type TransactionItemProps, type TransactionListProps, type TransactionsResponse, type WalletBalance, type WalletCardProps, type WalletScreenProps, type WalletUser, ZoApiClient, ZoAuth, ZoAuthError, type ZoAuthOTPRequest, type ZoAuthOTPVerifyRequest, type ZoAuthResponse, ZoAvatar, type ZoAvatarGenerateRequest, type ZoAvatarGenerateResponse, type ZoAvatarStatusResponse, ZoConfigError, type ZoErrorResponse, ZoNetworkError, ZoNotAuthenticatedError, type ZoPassportCompletion, type ZoPassportConfig, type ZoPassportProfile, ZoPassportSDK, ZoProfile, type ZoProfileResponse, type ZoProfileUpdatePayload, ZoSDKError, type ZoTokenBalanceResponse, type ZoTokenRefreshResponse, type ZoUser, ZoValidationError, ZoWallet, formatAsYouType, formatBalance, formatBalanceShort, formatNickname, formatPhoneNumber, formatTransactionAmount, formatWalletAddress, getCountryByDialCode, getCountryByIso, getTransactionColor, isValidPhoneNumber, logger, parsePhoneNumber };

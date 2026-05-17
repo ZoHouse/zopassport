@@ -53,7 +53,7 @@ __export(react_exports, {
   useZoPassport: () => useZoPassport
 });
 module.exports = __toCommonJS(react_exports);
-var import_react18 = require("react");
+var import_react19 = require("react");
 
 // src/lib/api/client.ts
 var import_axios = __toESM(require("axios"));
@@ -761,8 +761,102 @@ var ZoConfigError = class extends ZoSDKError {
   }
 };
 
+// src/lib/utils/phone.ts
+var import_mobile = require("libphonenumber-js/mobile");
+function isoToFlag(iso) {
+  if (!iso || iso.length !== 2) return "";
+  const upper = iso.toUpperCase();
+  const A = 127462;
+  const codePoints = [
+    A + (upper.charCodeAt(0) - 65),
+    A + (upper.charCodeAt(1) - 65)
+  ];
+  return String.fromCodePoint(...codePoints);
+}
+var displayNames;
+function getCountryName(iso) {
+  if (typeof Intl !== "undefined" && typeof Intl.DisplayNames === "function") {
+    if (!displayNames) {
+      try {
+        displayNames = new Intl.DisplayNames(["en"], { type: "region" });
+      } catch {
+        displayNames = void 0;
+      }
+    }
+    if (displayNames) {
+      const name = displayNames.of(iso);
+      if (name) return name;
+    }
+  }
+  return iso;
+}
+function buildCountryList() {
+  const list = [];
+  for (const iso of (0, import_mobile.getCountries)()) {
+    let dial;
+    try {
+      dial = (0, import_mobile.getCountryCallingCode)(iso);
+    } catch {
+      continue;
+    }
+    list.push({
+      code: dial,
+      country: iso,
+      flag: isoToFlag(iso),
+      name: getCountryName(iso)
+    });
+  }
+  list.sort((a, b) => a.name.localeCompare(b.name));
+  return list;
+}
+var COUNTRY_CODES = buildCountryList();
+function getCountryByDialCode(code) {
+  const cleaned = code.replace(/^\+/, "");
+  return COUNTRY_CODES.find((c) => c.code === cleaned);
+}
+function getCountryByIso(iso) {
+  const upper = iso.toUpperCase();
+  return COUNTRY_CODES.find((c) => c.country === upper);
+}
+function parsePhoneNumber(phone) {
+  return phone.replace(/\D/g, "");
+}
+function isValidPhoneNumber(phone, country) {
+  if (!phone) return false;
+  if (country) {
+    const iso = resolveIso(country);
+    if (iso) {
+      try {
+        return (0, import_mobile.isValidPhoneNumber)(phone, iso);
+      } catch {
+        return false;
+      }
+    }
+  }
+  const cleaned = parsePhoneNumber(phone);
+  return cleaned.length >= 7 && cleaned.length <= 15;
+}
+function resolveIso(input) {
+  if (!input) return void 0;
+  const upper = input.toUpperCase();
+  if (upper.length === 2 && /^[A-Z]{2}$/.test(upper)) {
+    return getCountryByIso(upper) ? upper : void 0;
+  }
+  const byDial = getCountryByDialCode(input);
+  return byDial?.country;
+}
+
 // src/lib/utils/validation.ts
-function validatePhoneNumber(phoneNumber) {
+function validatePhoneNumber(phoneNumber, country) {
+  if (country) {
+    if (!isValidPhoneNumber(phoneNumber, country)) {
+      throw new ZoValidationError(
+        `Invalid phone number "${phoneNumber}" for country "${country}".`,
+        "phoneNumber"
+      );
+    }
+    return;
+  }
   const cleaned = phoneNumber.replace(/\D/g, "");
   if (!cleaned || cleaned.length < 7 || cleaned.length > 15) {
     throw new ZoValidationError(
@@ -772,10 +866,32 @@ function validatePhoneNumber(phoneNumber) {
   }
 }
 function validateCountryCode(countryCode) {
+  if (!countryCode) {
+    throw new ZoValidationError(
+      `Invalid country code "${countryCode}". Must be a dial code (1-4 digits) or ISO 3166-1 alpha-2 code.`,
+      "countryCode"
+    );
+  }
+  const upper = countryCode.toUpperCase();
+  if (/^[A-Z]{2}$/.test(upper)) {
+    if (!getCountryByIso(upper)) {
+      throw new ZoValidationError(
+        `Invalid country code "${countryCode}". Unknown ISO 3166-1 alpha-2 code.`,
+        "countryCode"
+      );
+    }
+    return;
+  }
   const cleaned = countryCode.replace(/\D/g, "");
   if (!cleaned || cleaned.length < 1 || cleaned.length > 4) {
     throw new ZoValidationError(
       `Invalid country code "${countryCode}". Must be 1-4 digits.`,
+      "countryCode"
+    );
+  }
+  if (!getCountryByDialCode(cleaned)) {
+    throw new ZoValidationError(
+      `Invalid country code "${countryCode}". No country uses this dial code.`,
       "countryCode"
     );
   }
@@ -2490,35 +2606,15 @@ var CultureTag = ({ stickerUrl, name, onRemove }) => /* @__PURE__ */ (0, import_
   onRemove && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("button", { className: "zo-passport-culture-remove", onClick: onRemove, children: "\xD7" })
 ] });
 
-// src/lib/utils/phone.ts
-var COUNTRY_CODES = [
-  { code: "1", country: "US", flag: "\u{1F1FA}\u{1F1F8}", name: "United States" },
-  { code: "91", country: "IN", flag: "\u{1F1EE}\u{1F1F3}", name: "India" },
-  { code: "44", country: "GB", flag: "\u{1F1EC}\u{1F1E7}", name: "United Kingdom" },
-  { code: "86", country: "CN", flag: "\u{1F1E8}\u{1F1F3}", name: "China" },
-  { code: "81", country: "JP", flag: "\u{1F1EF}\u{1F1F5}", name: "Japan" },
-  { code: "82", country: "KR", flag: "\u{1F1F0}\u{1F1F7}", name: "South Korea" },
-  { code: "33", country: "FR", flag: "\u{1F1EB}\u{1F1F7}", name: "France" },
-  { code: "49", country: "DE", flag: "\u{1F1E9}\u{1F1EA}", name: "Germany" },
-  { code: "7", country: "RU", flag: "\u{1F1F7}\u{1F1FA}", name: "Russia" },
-  { code: "55", country: "BR", flag: "\u{1F1E7}\u{1F1F7}", name: "Brazil" },
-  { code: "61", country: "AU", flag: "\u{1F1E6}\u{1F1FA}", name: "Australia" },
-  { code: "65", country: "SG", flag: "\u{1F1F8}\u{1F1EC}", name: "Singapore" },
-  { code: "971", country: "AE", flag: "\u{1F1E6}\u{1F1EA}", name: "UAE" },
-  { code: "966", country: "SA", flag: "\u{1F1F8}\u{1F1E6}", name: "Saudi Arabia" },
-  { code: "62", country: "ID", flag: "\u{1F1EE}\u{1F1E9}", name: "Indonesia" },
-  { code: "60", country: "MY", flag: "\u{1F1F2}\u{1F1FE}", name: "Malaysia" },
-  { code: "66", country: "TH", flag: "\u{1F1F9}\u{1F1ED}", name: "Thailand" },
-  { code: "84", country: "VN", flag: "\u{1F1FB}\u{1F1F3}", name: "Vietnam" },
-  { code: "63", country: "PH", flag: "\u{1F1F5}\u{1F1ED}", name: "Philippines" },
-  { code: "31", country: "NL", flag: "\u{1F1F3}\u{1F1F1}", name: "Netherlands" }
-];
-function parsePhoneNumber(phone) {
-  return phone.replace(/\D/g, "");
-}
-
 // src/components/PhoneInput.tsx
+var import_react5 = require("react");
 var import_jsx_runtime8 = require("react/jsx-runtime");
+function resolveCountry(input) {
+  if (!input) return void 0;
+  const upper = input.toUpperCase();
+  if (/^[A-Z]{2}$/.test(upper)) return getCountryByIso(upper);
+  return getCountryByDialCode(input.replace(/^\+/, ""));
+}
 var PhoneInput = ({
   value,
   countryCode,
@@ -2529,20 +2625,56 @@ var PhoneInput = ({
   error,
   className = ""
 }) => {
+  const selectedCountry = resolveCountry(countryCode) ?? COUNTRY_CODES[0];
+  const [open, setOpen] = (0, import_react5.useState)(false);
+  const [query, setQuery] = (0, import_react5.useState)("");
+  const containerRef = (0, import_react5.useRef)(null);
+  const searchRef = (0, import_react5.useRef)(null);
+  (0, import_react5.useEffect)(() => {
+    if (!open) return;
+    const onDocClick = (e) => {
+      if (!containerRef.current?.contains(e.target)) {
+        setOpen(false);
+        setQuery("");
+      }
+    };
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [open]);
+  (0, import_react5.useEffect)(() => {
+    if (open) {
+      setTimeout(() => searchRef.current?.focus(), 0);
+    }
+  }, [open]);
+  const filteredCountries = (0, import_react5.useMemo)(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return COUNTRY_CODES;
+    return COUNTRY_CODES.filter(
+      (c) => c.name.toLowerCase().includes(q) || c.country.toLowerCase().includes(q) || c.code.includes(q.replace(/^\+/, ""))
+    );
+  }, [query]);
   const handlePhoneChange = (e) => {
     const digits = parsePhoneNumber(e.target.value);
     onChange(digits);
   };
-  return /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: `zo-phone-input ${className}`, children: [
-    /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { style: { display: "flex", gap: "8px" }, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
-        "select",
+  const handleSelect = (country) => {
+    onCountryChange(country.code);
+    setOpen(false);
+    setQuery("");
+  };
+  return /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: `zo-phone-input ${className}`, ref: containerRef, children: [
+    /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { style: { display: "flex", gap: "8px", position: "relative" }, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)(
+        "button",
         {
-          value: countryCode,
-          onChange: (e) => onCountryChange(e.target.value),
+          type: "button",
+          onClick: () => !disabled && setOpen((o) => !o),
           disabled,
+          "aria-haspopup": "listbox",
+          "aria-expanded": open,
           style: {
-            flex: 1,
+            flex: "0 0 auto",
+            minWidth: "110px",
             backgroundColor: "rgba(255, 255, 255, 0.1)",
             border: "1px solid rgba(255, 255, 255, 0.2)",
             borderRadius: "8px",
@@ -2551,13 +2683,21 @@ var PhoneInput = ({
             fontFamily: "Rubik, system-ui, sans-serif",
             fontSize: "14px",
             cursor: disabled ? "not-allowed" : "pointer",
-            opacity: disabled ? 0.5 : 1
+            opacity: disabled ? 0.5 : 1,
+            textAlign: "left",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "8px"
           },
-          children: COUNTRY_CODES.map((country) => /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("option", { value: country.code, style: { backgroundColor: "black" }, children: [
-            country.flag,
-            " +",
-            country.code
-          ] }, country.code))
+          children: [
+            /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("span", { children: [
+              selectedCountry.flag,
+              " +",
+              selectedCountry.code
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { style: { opacity: 0.6, fontSize: "10px" }, children: "\u25BE" })
+          ]
         }
       ),
       /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
@@ -2569,7 +2709,7 @@ var PhoneInput = ({
           placeholder,
           disabled,
           style: {
-            flex: 2,
+            flex: 1,
             backgroundColor: "rgba(255, 255, 255, 0.1)",
             border: error ? "1px solid #ef4444" : "1px solid rgba(255, 255, 255, 0.2)",
             borderRadius: "8px",
@@ -2580,6 +2720,121 @@ var PhoneInput = ({
             cursor: disabled ? "not-allowed" : "text",
             opacity: disabled ? 0.5 : 1
           }
+        }
+      ),
+      open && /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)(
+        "div",
+        {
+          role: "listbox",
+          style: {
+            position: "absolute",
+            top: "calc(100% + 4px)",
+            left: 0,
+            zIndex: 50,
+            width: "320px",
+            maxHeight: "320px",
+            overflow: "hidden",
+            backgroundColor: "rgba(20, 20, 24, 0.98)",
+            border: "1px solid rgba(255, 255, 255, 0.15)",
+            borderRadius: "8px",
+            boxShadow: "0 8px 24px rgba(0, 0, 0, 0.4)",
+            display: "flex",
+            flexDirection: "column",
+            fontFamily: "Rubik, system-ui, sans-serif"
+          },
+          children: [
+            /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
+              "input",
+              {
+                ref: searchRef,
+                type: "text",
+                value: query,
+                onChange: (e) => setQuery(e.target.value),
+                placeholder: "Search country or code...",
+                style: {
+                  margin: "8px",
+                  padding: "8px 12px",
+                  backgroundColor: "rgba(255, 255, 255, 0.08)",
+                  border: "1px solid rgba(255, 255, 255, 0.15)",
+                  borderRadius: "6px",
+                  color: "white",
+                  fontSize: "13px",
+                  outline: "none"
+                }
+              }
+            ),
+            /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)(
+              "div",
+              {
+                style: {
+                  overflowY: "auto",
+                  maxHeight: "260px"
+                },
+                children: [
+                  filteredCountries.length === 0 && /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
+                    "div",
+                    {
+                      style: {
+                        padding: "12px 16px",
+                        color: "rgba(255, 255, 255, 0.5)",
+                        fontSize: "13px"
+                      },
+                      children: "No matches."
+                    }
+                  ),
+                  filteredCountries.map((country) => {
+                    const isSelected = country.country === selectedCountry.country;
+                    return /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)(
+                      "button",
+                      {
+                        type: "button",
+                        role: "option",
+                        "aria-selected": isSelected,
+                        onClick: () => handleSelect(country),
+                        style: {
+                          width: "100%",
+                          padding: "10px 16px",
+                          background: isSelected ? "rgba(255, 255, 255, 0.08)" : "transparent",
+                          border: "none",
+                          borderBottom: "1px solid rgba(255, 255, 255, 0.05)",
+                          color: "white",
+                          textAlign: "left",
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          fontSize: "14px"
+                        },
+                        onMouseEnter: (e) => {
+                          e.currentTarget.style.background = "rgba(255, 255, 255, 0.06)";
+                        },
+                        onMouseLeave: (e) => {
+                          e.currentTarget.style.background = isSelected ? "rgba(255, 255, 255, 0.08)" : "transparent";
+                        },
+                        children: [
+                          /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)(
+                            "span",
+                            {
+                              style: { display: "flex", gap: "10px", alignItems: "center" },
+                              children: [
+                                /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { style: { fontSize: "18px" }, children: country.flag }),
+                                /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { children: country.name })
+                              ]
+                            }
+                          ),
+                          /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("span", { style: { opacity: 0.7, fontSize: "13px" }, children: [
+                            "+",
+                            country.code
+                          ] })
+                        ]
+                      },
+                      country.country
+                    );
+                  })
+                ]
+              }
+            )
+          ]
         }
       )
     ] }),
@@ -2599,7 +2854,7 @@ var PhoneInput = ({
 };
 
 // src/components/OTPInput.tsx
-var import_react5 = require("react");
+var import_react6 = require("react");
 var import_jsx_runtime9 = require("react/jsx-runtime");
 var OTPInput = ({
   value,
@@ -2611,11 +2866,11 @@ var OTPInput = ({
   autoFocus = true,
   className = ""
 }) => {
-  const inputRefs = (0, import_react5.useRef)([]);
-  (0, import_react5.useEffect)(() => {
+  const inputRefs = (0, import_react6.useRef)([]);
+  (0, import_react6.useEffect)(() => {
     inputRefs.current = inputRefs.current.slice(0, length);
   }, [length]);
-  (0, import_react5.useEffect)(() => {
+  (0, import_react6.useEffect)(() => {
     if (autoFocus && inputRefs.current[0]) {
       setTimeout(() => inputRefs.current[0]?.focus(), 100);
     }
@@ -2703,7 +2958,7 @@ var OTPInput = ({
 };
 
 // src/components/ZoAuth.tsx
-var import_react6 = require("react");
+var import_react7 = require("react");
 var import_jsx_runtime10 = require("react/jsx-runtime");
 var ZoAuth2 = ({
   onSuccess,
@@ -2714,14 +2969,14 @@ var ZoAuth2 = ({
   showCloseButton = true,
   className = ""
 }) => {
-  const [step, setStep] = (0, import_react6.useState)("phone");
-  const [countryCode, setCountryCode] = (0, import_react6.useState)(defaultCountryCode);
-  const [phoneNumber, setPhoneNumber] = (0, import_react6.useState)("");
-  const [otp, setOtp] = (0, import_react6.useState)(["", "", "", "", "", ""]);
-  const [isLoading, setIsLoading] = (0, import_react6.useState)(false);
-  const [error, setError] = (0, import_react6.useState)(null);
-  const [resendCooldown, setResendCooldown] = (0, import_react6.useState)(0);
-  (0, import_react6.useEffect)(() => {
+  const [step, setStep] = (0, import_react7.useState)("phone");
+  const [countryCode, setCountryCode] = (0, import_react7.useState)(defaultCountryCode);
+  const [phoneNumber, setPhoneNumber] = (0, import_react7.useState)("");
+  const [otp, setOtp] = (0, import_react7.useState)(["", "", "", "", "", ""]);
+  const [isLoading, setIsLoading] = (0, import_react7.useState)(false);
+  const [error, setError] = (0, import_react7.useState)(null);
+  const [resendCooldown, setResendCooldown] = (0, import_react7.useState)(0);
+  (0, import_react7.useEffect)(() => {
     if (resendCooldown > 0) {
       const timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1e3);
       return () => clearTimeout(timer);
@@ -2978,7 +3233,7 @@ var ZoAuth2 = ({
 };
 
 // src/components/ZoLanding.tsx
-var import_react7 = require("react");
+var import_react8 = require("react");
 var import_jsx_runtime11 = require("react/jsx-runtime");
 var ZoLanding = ({
   onAuthSuccess,
@@ -2995,7 +3250,7 @@ var ZoLanding = ({
   buttonText = "Tune into Zo World",
   className = ""
 }) => {
-  const [showAuth, setShowAuth] = (0, import_react7.useState)(false);
+  const [showAuth, setShowAuth] = (0, import_react8.useState)(false);
   const containerStyle = {
     position: "fixed",
     inset: 0,
@@ -3190,7 +3445,7 @@ var ZoLanding = ({
 };
 
 // src/components/ZoOnboarding.tsx
-var import_react8 = require("react");
+var import_react9 = require("react");
 var import_jsx_runtime12 = require("react/jsx-runtime");
 var ZoOnboarding = ({
   onComplete,
@@ -3202,20 +3457,20 @@ var ZoOnboarding = ({
   baeAvatarUrl = "/bae.png",
   className = ""
 }) => {
-  const [step, setStep] = (0, import_react8.useState)("input");
-  const [nickname, setNickname] = (0, import_react8.useState)("");
-  const [bodyType, setBodyType] = (0, import_react8.useState)("bro");
-  const [city, setCity] = (0, import_react8.useState)("");
-  const [locationEnabled, setLocationEnabled] = (0, import_react8.useState)(false);
-  const [isLoadingLocation, setIsLoadingLocation] = (0, import_react8.useState)(false);
-  const [isSaving, setIsSaving] = (0, import_react8.useState)(false);
-  const [error, setError] = (0, import_react8.useState)("");
-  const [avatarUrl, setAvatarUrl] = (0, import_react8.useState)(null);
-  const pollingRef = (0, import_react8.useRef)(null);
-  const attemptsRef = (0, import_react8.useRef)(0);
+  const [step, setStep] = (0, import_react9.useState)("input");
+  const [nickname, setNickname] = (0, import_react9.useState)("");
+  const [bodyType, setBodyType] = (0, import_react9.useState)("bro");
+  const [city, setCity] = (0, import_react9.useState)("");
+  const [locationEnabled, setLocationEnabled] = (0, import_react9.useState)(false);
+  const [isLoadingLocation, setIsLoadingLocation] = (0, import_react9.useState)(false);
+  const [isSaving, setIsSaving] = (0, import_react9.useState)(false);
+  const [error, setError] = (0, import_react9.useState)("");
+  const [avatarUrl, setAvatarUrl] = (0, import_react9.useState)(null);
+  const pollingRef = (0, import_react9.useRef)(null);
+  const attemptsRef = (0, import_react9.useRef)(0);
   const isNicknameValid = nickname.length >= 4 && nickname.length <= 16 && /^[a-z0-9]*$/.test(nickname);
   const canSubmit = isNicknameValid && locationEnabled && bodyType && !isSaving;
-  (0, import_react8.useEffect)(() => {
+  (0, import_react9.useEffect)(() => {
     return () => {
       if (pollingRef.current) clearTimeout(pollingRef.current);
     };
@@ -3638,13 +3893,13 @@ var ZoOnboarding = ({
 };
 
 // src/hooks/useAuth.ts
-var import_react9 = require("react");
+var import_react10 = require("react");
 function useAuth() {
   const { sdk, user, isAuthenticated, isLoading, sendOTP, verifyOTP, logout } = useZoPassport();
-  const [otpSent, setOtpSent] = (0, import_react9.useState)(false);
-  const [phoneNumber, setPhoneNumber] = (0, import_react9.useState)("");
-  const [countryCode, setCountryCode] = (0, import_react9.useState)("91");
-  const handleSendOTP = (0, import_react9.useCallback)(async (code, phone) => {
+  const [otpSent, setOtpSent] = (0, import_react10.useState)(false);
+  const [phoneNumber, setPhoneNumber] = (0, import_react10.useState)("");
+  const [countryCode, setCountryCode] = (0, import_react10.useState)("91");
+  const handleSendOTP = (0, import_react10.useCallback)(async (code, phone) => {
     setCountryCode(code);
     setPhoneNumber(phone);
     const result = await sendOTP(code, phone);
@@ -3653,14 +3908,14 @@ function useAuth() {
     }
     return result;
   }, [sendOTP]);
-  const handleVerifyOTP = (0, import_react9.useCallback)(async (otp) => {
+  const handleVerifyOTP = (0, import_react10.useCallback)(async (otp) => {
     const result = await verifyOTP(countryCode, phoneNumber, otp);
     if (result.success) {
       setOtpSent(false);
     }
     return result;
   }, [verifyOTP, countryCode, phoneNumber]);
-  const handleLogout = (0, import_react9.useCallback)(async () => {
+  const handleLogout = (0, import_react10.useCallback)(async () => {
     await logout();
     setOtpSent(false);
     setPhoneNumber("");
@@ -3679,14 +3934,14 @@ function useAuth() {
 }
 
 // src/hooks/useProfile.ts
-var import_react11 = require("react");
+var import_react12 = require("react");
 function useProfile() {
   const { sdk, user, isAuthenticated, refreshProfile } = useZoPassport();
-  const [isLoading, setIsLoading] = (0, import_react11.useState)(false);
-  const [error, setError] = (0, import_react11.useState)(null);
+  const [isLoading, setIsLoading] = (0, import_react12.useState)(false);
+  const [error, setError] = (0, import_react12.useState)(null);
   const completion = user ? calculateCompletion(user) : { done: 0, total: 10, percentage: 0 };
   const isFounder = user?.membership === "founder";
-  const updateProfile = (0, import_react11.useCallback)(async (updates) => {
+  const updateProfile = (0, import_react12.useCallback)(async (updates) => {
     if (!sdk) return { success: false, error: "SDK not initialized" };
     setIsLoading(true);
     setError(null);
@@ -3700,7 +3955,7 @@ function useProfile() {
       setIsLoading(false);
     }
   }, [sdk]);
-  const reload = (0, import_react11.useCallback)(async () => {
+  const reload = (0, import_react12.useCallback)(async () => {
     setIsLoading(true);
     try {
       await refreshProfile();
@@ -3739,15 +3994,15 @@ function calculateCompletion(user) {
 }
 
 // src/hooks/useAvatar.ts
-var import_react13 = require("react");
+var import_react14 = require("react");
 function useAvatar() {
   const { sdk, user, refreshProfile } = useZoPassport();
-  const [isGenerating, setIsGenerating] = (0, import_react13.useState)(false);
-  const [progress, setProgress] = (0, import_react13.useState)(null);
-  const [error, setError] = (0, import_react13.useState)(null);
+  const [isGenerating, setIsGenerating] = (0, import_react14.useState)(false);
+  const [progress, setProgress] = (0, import_react14.useState)(null);
+  const [error, setError] = (0, import_react14.useState)(null);
   const avatarUrl = user?.avatar?.image || user?.pfp_image;
   const avatarStatus = user?.avatar?.status || "completed";
-  const generateAvatar = (0, import_react13.useCallback)(async (bodyType) => {
+  const generateAvatar = (0, import_react14.useCallback)(async (bodyType) => {
     if (!sdk) return { success: false, error: "SDK not initialized" };
     setIsGenerating(true);
     setProgress("pending");
@@ -3776,15 +4031,15 @@ function useAvatar() {
 }
 
 // src/hooks/useWallet.ts
-var import_react17 = require("react");
+var import_react18 = require("react");
 
 // src/hooks/useWalletBalance.ts
-var import_react15 = require("react");
+var import_react16 = require("react");
 var useWalletBalance = (apiClient, options) => {
-  const [balance, setBalance] = (0, import_react15.useState)(0);
-  const [isLoading, setIsLoading] = (0, import_react15.useState)(true);
-  const [error, setError] = (0, import_react15.useState)(null);
-  const fetchBalance = (0, import_react15.useCallback)(async () => {
+  const [balance, setBalance] = (0, import_react16.useState)(0);
+  const [isLoading, setIsLoading] = (0, import_react16.useState)(true);
+  const [error, setError] = (0, import_react16.useState)(null);
+  const fetchBalance = (0, import_react16.useCallback)(async () => {
     if (!apiClient) {
       setError(new Error("API client not provided"));
       setIsLoading(false);
@@ -3803,7 +4058,7 @@ var useWalletBalance = (apiClient, options) => {
       setIsLoading(false);
     }
   }, [apiClient]);
-  (0, import_react15.useEffect)(() => {
+  (0, import_react16.useEffect)(() => {
     fetchBalance();
     if (options?.autoRefetch) {
       const interval = setInterval(fetchBalance, options.refetchInterval || 3e4);
@@ -3819,13 +4074,13 @@ var useWalletBalance = (apiClient, options) => {
 };
 
 // src/hooks/useTransactions.ts
-var import_react16 = require("react");
+var import_react17 = require("react");
 var useTransactions = (apiClient, options) => {
-  const [transactions, setTransactions] = (0, import_react16.useState)([]);
-  const [isLoading, setIsLoading] = (0, import_react16.useState)(true);
-  const [error, setError] = (0, import_react16.useState)(null);
-  const [hasMore, setHasMore] = (0, import_react16.useState)(false);
-  const fetchTransactions = (0, import_react16.useCallback)(async () => {
+  const [transactions, setTransactions] = (0, import_react17.useState)([]);
+  const [isLoading, setIsLoading] = (0, import_react17.useState)(true);
+  const [error, setError] = (0, import_react17.useState)(null);
+  const [hasMore, setHasMore] = (0, import_react17.useState)(false);
+  const fetchTransactions = (0, import_react17.useCallback)(async () => {
     if (!apiClient) {
       setError(new Error("API client not provided"));
       setIsLoading(false);
@@ -3849,10 +4104,10 @@ var useTransactions = (apiClient, options) => {
       setIsLoading(false);
     }
   }, [apiClient, options?.limit]);
-  const loadMore = (0, import_react16.useCallback)(async () => {
+  const loadMore = (0, import_react17.useCallback)(async () => {
     if (!hasMore || isLoading) return;
   }, [hasMore, isLoading]);
-  (0, import_react16.useEffect)(() => {
+  (0, import_react17.useEffect)(() => {
     fetchTransactions();
     if (options?.autoRefetch) {
       const interval = setInterval(fetchTransactions, 6e4);
@@ -3886,7 +4141,7 @@ var useWallet = (apiClient, options) => {
   } = useTransactions(apiClient, options);
   const isLoading = isLoadingBalance || isLoadingTransactions;
   const error = balanceError || transactionsError;
-  const refetchAll = (0, import_react17.useCallback)(async () => {
+  const refetchAll = (0, import_react18.useCallback)(async () => {
     await Promise.all([refetchBalance(), refetchTransactions()]);
   }, [refetchBalance, refetchTransactions]);
   return {
@@ -3901,18 +4156,18 @@ var useWallet = (apiClient, options) => {
 
 // src/react.tsx
 var import_jsx_runtime13 = require("react/jsx-runtime");
-var ZoPassportContext = (0, import_react18.createContext)(null);
+var ZoPassportContext = (0, import_react19.createContext)(null);
 function ZoPassportProvider({
   children,
   clientKey,
   baseUrl,
   autoRefresh = true
 }) {
-  const [sdk, setSdk] = (0, import_react18.useState)(null);
-  const [user, setUser] = (0, import_react18.useState)(null);
-  const [isAuthenticated, setIsAuthenticated] = (0, import_react18.useState)(false);
-  const [isLoading, setIsLoading] = (0, import_react18.useState)(true);
-  (0, import_react18.useEffect)(() => {
+  const [sdk, setSdk] = (0, import_react19.useState)(null);
+  const [user, setUser] = (0, import_react19.useState)(null);
+  const [isAuthenticated, setIsAuthenticated] = (0, import_react19.useState)(false);
+  const [isLoading, setIsLoading] = (0, import_react19.useState)(true);
+  (0, import_react19.useEffect)(() => {
     const passportSdk = new ZoPassportSDK({
       clientKey,
       baseUrl,
@@ -3980,7 +4235,7 @@ function ZoPassportProvider({
   return /* @__PURE__ */ (0, import_jsx_runtime13.jsx)(ZoPassportContext.Provider, { value, children });
 }
 function useZoPassport() {
-  const context = (0, import_react18.useContext)(ZoPassportContext);
+  const context = (0, import_react19.useContext)(ZoPassportContext);
   if (!context) {
     throw new Error("useZoPassport must be used within a ZoPassportProvider");
   }
