@@ -1432,8 +1432,102 @@ var ZoConfigError = class extends ZoSDKError {
   }
 };
 
+// src/lib/utils/phone.ts
+var import_mobile = require("libphonenumber-js/mobile");
+function isoToFlag(iso) {
+  if (!iso || iso.length !== 2) return "";
+  const upper = iso.toUpperCase();
+  const A = 127462;
+  const codePoints = [
+    A + (upper.charCodeAt(0) - 65),
+    A + (upper.charCodeAt(1) - 65)
+  ];
+  return String.fromCodePoint(...codePoints);
+}
+var displayNames;
+function getCountryName(iso) {
+  if (typeof Intl !== "undefined" && typeof Intl.DisplayNames === "function") {
+    if (!displayNames) {
+      try {
+        displayNames = new Intl.DisplayNames(["en"], { type: "region" });
+      } catch {
+        displayNames = void 0;
+      }
+    }
+    if (displayNames) {
+      const name = displayNames.of(iso);
+      if (name) return name;
+    }
+  }
+  return iso;
+}
+function buildCountryList() {
+  const list = [];
+  for (const iso of (0, import_mobile.getCountries)()) {
+    let dial;
+    try {
+      dial = (0, import_mobile.getCountryCallingCode)(iso);
+    } catch {
+      continue;
+    }
+    list.push({
+      code: dial,
+      country: iso,
+      flag: isoToFlag(iso),
+      name: getCountryName(iso)
+    });
+  }
+  list.sort((a, b) => a.name.localeCompare(b.name));
+  return list;
+}
+var COUNTRY_CODES = buildCountryList();
+function getCountryByDialCode(code) {
+  const cleaned = code.replace(/^\+/, "");
+  return COUNTRY_CODES.find((c) => c.code === cleaned);
+}
+function getCountryByIso(iso) {
+  const upper = iso.toUpperCase();
+  return COUNTRY_CODES.find((c) => c.country === upper);
+}
+function parsePhoneNumber(phone) {
+  return phone.replace(/\D/g, "");
+}
+function isValidPhoneNumber(phone, country) {
+  if (!phone) return false;
+  if (country) {
+    const iso = resolveIso(country);
+    if (iso) {
+      try {
+        return (0, import_mobile.isValidPhoneNumber)(phone, iso);
+      } catch {
+        return false;
+      }
+    }
+  }
+  const cleaned = parsePhoneNumber(phone);
+  return cleaned.length >= 7 && cleaned.length <= 15;
+}
+function resolveIso(input) {
+  if (!input) return void 0;
+  const upper = input.toUpperCase();
+  if (upper.length === 2 && /^[A-Z]{2}$/.test(upper)) {
+    return getCountryByIso(upper) ? upper : void 0;
+  }
+  const byDial = getCountryByDialCode(input);
+  return byDial?.country;
+}
+
 // src/lib/utils/validation.ts
-function validatePhoneNumber(phoneNumber) {
+function validatePhoneNumber(phoneNumber, country) {
+  if (country) {
+    if (!isValidPhoneNumber(phoneNumber, country)) {
+      throw new ZoValidationError(
+        `Invalid phone number "${phoneNumber}" for country "${country}".`,
+        "phoneNumber"
+      );
+    }
+    return;
+  }
   const cleaned = phoneNumber.replace(/\D/g, "");
   if (!cleaned || cleaned.length < 7 || cleaned.length > 15) {
     throw new ZoValidationError(
@@ -1443,10 +1537,32 @@ function validatePhoneNumber(phoneNumber) {
   }
 }
 function validateCountryCode(countryCode) {
+  if (!countryCode) {
+    throw new ZoValidationError(
+      `Invalid country code "${countryCode}". Must be a dial code (1-4 digits) or ISO 3166-1 alpha-2 code.`,
+      "countryCode"
+    );
+  }
+  const upper = countryCode.toUpperCase();
+  if (/^[A-Z]{2}$/.test(upper)) {
+    if (!getCountryByIso(upper)) {
+      throw new ZoValidationError(
+        `Invalid country code "${countryCode}". Unknown ISO 3166-1 alpha-2 code.`,
+        "countryCode"
+      );
+    }
+    return;
+  }
   const cleaned = countryCode.replace(/\D/g, "");
   if (!cleaned || cleaned.length < 1 || cleaned.length > 4) {
     throw new ZoValidationError(
       `Invalid country code "${countryCode}". Must be 1-4 digits.`,
+      "countryCode"
+    );
+  }
+  if (!getCountryByDialCode(cleaned)) {
+    throw new ZoValidationError(
+      `Invalid country code "${countryCode}". No country uses this dial code.`,
       "countryCode"
     );
   }

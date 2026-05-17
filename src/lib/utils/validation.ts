@@ -1,10 +1,23 @@
 import { ZoValidationError, ZoConfigError } from '../errors';
+import { getCountryByDialCode, getCountryByIso, isValidPhoneNumber } from './phone';
 
 /**
- * Validate a phone number (digits only, 7-15 chars per E.164).
+ * Validate a phone number. If a country (ISO code or dial code) is supplied,
+ * uses libphonenumber-js country-specific rules. Otherwise falls back to a
+ * permissive 7-15 digit E.164 length check.
  * @throws {ZoValidationError} if the phone number is invalid
  */
-export function validatePhoneNumber(phoneNumber: string): void {
+export function validatePhoneNumber(phoneNumber: string, country?: string): void {
+  if (country) {
+    if (!isValidPhoneNumber(phoneNumber, country)) {
+      throw new ZoValidationError(
+        `Invalid phone number "${phoneNumber}" for country "${country}".`,
+        'phoneNumber'
+      );
+    }
+    return;
+  }
+
   const cleaned = phoneNumber.replace(/\D/g, '');
   if (!cleaned || cleaned.length < 7 || cleaned.length > 15) {
     throw new ZoValidationError(
@@ -15,14 +28,39 @@ export function validatePhoneNumber(phoneNumber: string): void {
 }
 
 /**
- * Validate a country code (1-4 digits).
+ * Validate a country code. Accepts either an ISO 3166-1 alpha-2 code
+ * (e.g. "IN") or a dial code (1-4 digits, e.g. "91").
  * @throws {ZoValidationError} if the country code is invalid
  */
 export function validateCountryCode(countryCode: string): void {
+  if (!countryCode) {
+    throw new ZoValidationError(
+      `Invalid country code "${countryCode}". Must be a dial code (1-4 digits) or ISO 3166-1 alpha-2 code.`,
+      'countryCode'
+    );
+  }
+
+  const upper = countryCode.toUpperCase();
+  if (/^[A-Z]{2}$/.test(upper)) {
+    if (!getCountryByIso(upper)) {
+      throw new ZoValidationError(
+        `Invalid country code "${countryCode}". Unknown ISO 3166-1 alpha-2 code.`,
+        'countryCode'
+      );
+    }
+    return;
+  }
+
   const cleaned = countryCode.replace(/\D/g, '');
   if (!cleaned || cleaned.length < 1 || cleaned.length > 4) {
     throw new ZoValidationError(
       `Invalid country code "${countryCode}". Must be 1-4 digits.`,
+      'countryCode'
+    );
+  }
+  if (!getCountryByDialCode(cleaned)) {
+    throw new ZoValidationError(
+      `Invalid country code "${countryCode}". No country uses this dial code.`,
       'countryCode'
     );
   }

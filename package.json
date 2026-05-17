@@ -1,6 +1,6 @@
 {
   "name": "zopassport",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Zo Passport SDK - Complete authentication, avatar generation, and wallet integration for Zo World applications.",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -53,7 +53,8 @@
     "test:e2e": "vitest run tests/e2e"
   },
   "dependencies": {
-    "axios": "^1.6.0"
+    "axios": "^1.6.0",
+    "libphonenumber-js": "^1.13.2"
   },
   "peerDependencies": {
     "react": ">=17.0.0",

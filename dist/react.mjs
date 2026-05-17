@@ -1,5 +1,5 @@
 // src/react.tsx
-import { createContext, useContext, useEffect as useEffect11, useState as useState10 } from "react";
+import { createContext, useContext, useEffect as useEffect12, useState as useState11 } from "react";
 
 // src/lib/api/client.ts
 import axios from "axios";
@@ -707,8 +707,108 @@ var ZoConfigError = class extends ZoSDKError {
   }
 };
 
+// src/lib/utils/phone.ts
+import {
+  getCountries,
+  getCountryCallingCode,
+  parsePhoneNumberFromString,
+  isValidPhoneNumber as libIsValidPhoneNumber,
+  AsYouType
+} from "libphonenumber-js/mobile";
+function isoToFlag(iso) {
+  if (!iso || iso.length !== 2) return "";
+  const upper = iso.toUpperCase();
+  const A = 127462;
+  const codePoints = [
+    A + (upper.charCodeAt(0) - 65),
+    A + (upper.charCodeAt(1) - 65)
+  ];
+  return String.fromCodePoint(...codePoints);
+}
+var displayNames;
+function getCountryName(iso) {
+  if (typeof Intl !== "undefined" && typeof Intl.DisplayNames === "function") {
+    if (!displayNames) {
+      try {
+        displayNames = new Intl.DisplayNames(["en"], { type: "region" });
+      } catch {
+        displayNames = void 0;
+      }
+    }
+    if (displayNames) {
+      const name = displayNames.of(iso);
+      if (name) return name;
+    }
+  }
+  return iso;
+}
+function buildCountryList() {
+  const list = [];
+  for (const iso of getCountries()) {
+    let dial;
+    try {
+      dial = getCountryCallingCode(iso);
+    } catch {
+      continue;
+    }
+    list.push({
+      code: dial,
+      country: iso,
+      flag: isoToFlag(iso),
+      name: getCountryName(iso)
+    });
+  }
+  list.sort((a, b) => a.name.localeCompare(b.name));
+  return list;
+}
+var COUNTRY_CODES = buildCountryList();
+function getCountryByDialCode(code) {
+  const cleaned = code.replace(/^\+/, "");
+  return COUNTRY_CODES.find((c) => c.code === cleaned);
+}
+function getCountryByIso(iso) {
+  const upper = iso.toUpperCase();
+  return COUNTRY_CODES.find((c) => c.country === upper);
+}
+function parsePhoneNumber(phone) {
+  return phone.replace(/\D/g, "");
+}
+function isValidPhoneNumber(phone, country) {
+  if (!phone) return false;
+  if (country) {
+    const iso = resolveIso(country);
+    if (iso) {
+      try {
+        return libIsValidPhoneNumber(phone, iso);
+      } catch {
+        return false;
+      }
+    }
+  }
+  const cleaned = parsePhoneNumber(phone);
+  return cleaned.length >= 7 && cleaned.length <= 15;
+}
+function resolveIso(input) {
+  if (!input) return void 0;
+  const upper = input.toUpperCase();
+  if (upper.length === 2 && /^[A-Z]{2}$/.test(upper)) {
+    return getCountryByIso(upper) ? upper : void 0;
+  }
+  const byDial = getCountryByDialCode(input);
+  return byDial?.country;
+}
+
 // src/lib/utils/validation.ts
-function validatePhoneNumber(phoneNumber) {
+function validatePhoneNumber(phoneNumber, country) {
+  if (country) {
+    if (!isValidPhoneNumber(phoneNumber, country)) {
+      throw new ZoValidationError(
+        `Invalid phone number "${phoneNumber}" for country "${country}".`,
+        "phoneNumber"
+      );
+    }
+    return;
+  }
   const cleaned = phoneNumber.replace(/\D/g, "");
   if (!cleaned || cleaned.length < 7 || cleaned.length > 15) {
     throw new ZoValidationError(
@@ -718,10 +818,32 @@ function validatePhoneNumber(phoneNumber) {
   }
 }
 function validateCountryCode(countryCode) {
+  if (!countryCode) {
+    throw new ZoValidationError(
+      `Invalid country code "${countryCode}". Must be a dial code (1-4 digits) or ISO 3166-1 alpha-2 code.`,
+      "countryCode"
+    );
+  }
+  const upper = countryCode.toUpperCase();
+  if (/^[A-Z]{2}$/.test(upper)) {
+    if (!getCountryByIso(upper)) {
+      throw new ZoValidationError(
+        `Invalid country code "${countryCode}". Unknown ISO 3166-1 alpha-2 code.`,
+        "countryCode"
+      );
+    }
+    return;
+  }
   const cleaned = countryCode.replace(/\D/g, "");
   if (!cleaned || cleaned.length < 1 || cleaned.length > 4) {
     throw new ZoValidationError(
       `Invalid country code "${countryCode}". Must be 1-4 digits.`,
+      "countryCode"
+    );
+  }
+  if (!getCountryByDialCode(cleaned)) {
+    throw new ZoValidationError(
+      `Invalid country code "${countryCode}". No country uses this dial code.`,
       "countryCode"
     );
   }
@@ -2436,35 +2558,15 @@ var CultureTag = ({ stickerUrl, name, onRemove }) => /* @__PURE__ */ jsxs6("div"
   onRemove && /* @__PURE__ */ jsx7("button", { className: "zo-passport-culture-remove", onClick: onRemove, children: "\xD7" })
 ] });
 
-// src/lib/utils/phone.ts
-var COUNTRY_CODES = [
-  { code: "1", country: "US", flag: "\u{1F1FA}\u{1F1F8}", name: "United States" },
-  { code: "91", country: "IN", flag: "\u{1F1EE}\u{1F1F3}", name: "India" },
-  { code: "44", country: "GB", flag: "\u{1F1EC}\u{1F1E7}", name: "United Kingdom" },
-  { code: "86", country: "CN", flag: "\u{1F1E8}\u{1F1F3}", name: "China" },
-  { code: "81", country: "JP", flag: "\u{1F1EF}\u{1F1F5}", name: "Japan" },
-  { code: "82", country: "KR", flag: "\u{1F1F0}\u{1F1F7}", name: "South Korea" },
-  { code: "33", country: "FR", flag: "\u{1F1EB}\u{1F1F7}", name: "France" },
-  { code: "49", country: "DE", flag: "\u{1F1E9}\u{1F1EA}", name: "Germany" },
-  { code: "7", country: "RU", flag: "\u{1F1F7}\u{1F1FA}", name: "Russia" },
-  { code: "55", country: "BR", flag: "\u{1F1E7}\u{1F1F7}", name: "Brazil" },
-  { code: "61", country: "AU", flag: "\u{1F1E6}\u{1F1FA}", name: "Australia" },
-  { code: "65", country: "SG", flag: "\u{1F1F8}\u{1F1EC}", name: "Singapore" },
-  { code: "971", country: "AE", flag: "\u{1F1E6}\u{1F1EA}", name: "UAE" },
-  { code: "966", country: "SA", flag: "\u{1F1F8}\u{1F1E6}", name: "Saudi Arabia" },
-  { code: "62", country: "ID", flag: "\u{1F1EE}\u{1F1E9}", name: "Indonesia" },
-  { code: "60", country: "MY", flag: "\u{1F1F2}\u{1F1FE}", name: "Malaysia" },
-  { code: "66", country: "TH", flag: "\u{1F1F9}\u{1F1ED}", name: "Thailand" },
-  { code: "84", country: "VN", flag: "\u{1F1FB}\u{1F1F3}", name: "Vietnam" },
-  { code: "63", country: "PH", flag: "\u{1F1F5}\u{1F1ED}", name: "Philippines" },
-  { code: "31", country: "NL", flag: "\u{1F1F3}\u{1F1F1}", name: "Netherlands" }
-];
-function parsePhoneNumber(phone) {
-  return phone.replace(/\D/g, "");
-}
-
 // src/components/PhoneInput.tsx
+import { useEffect as useEffect5, useMemo, useRef, useState as useState2 } from "react";
 import { jsx as jsx8, jsxs as jsxs7 } from "react/jsx-runtime";
+function resolveCountry(input) {
+  if (!input) return void 0;
+  const upper = input.toUpperCase();
+  if (/^[A-Z]{2}$/.test(upper)) return getCountryByIso(upper);
+  return getCountryByDialCode(input.replace(/^\+/, ""));
+}
 var PhoneInput = ({
   value,
   countryCode,
@@ -2475,20 +2577,56 @@ var PhoneInput = ({
   error,
   className = ""
 }) => {
+  const selectedCountry = resolveCountry(countryCode) ?? COUNTRY_CODES[0];
+  const [open, setOpen] = useState2(false);
+  const [query, setQuery] = useState2("");
+  const containerRef = useRef(null);
+  const searchRef = useRef(null);
+  useEffect5(() => {
+    if (!open) return;
+    const onDocClick = (e) => {
+      if (!containerRef.current?.contains(e.target)) {
+        setOpen(false);
+        setQuery("");
+      }
+    };
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [open]);
+  useEffect5(() => {
+    if (open) {
+      setTimeout(() => searchRef.current?.focus(), 0);
+    }
+  }, [open]);
+  const filteredCountries = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return COUNTRY_CODES;
+    return COUNTRY_CODES.filter(
+      (c) => c.name.toLowerCase().includes(q) || c.country.toLowerCase().includes(q) || c.code.includes(q.replace(/^\+/, ""))
+    );
+  }, [query]);
   const handlePhoneChange = (e) => {
     const digits = parsePhoneNumber(e.target.value);
     onChange(digits);
   };
-  return /* @__PURE__ */ jsxs7("div", { className: `zo-phone-input ${className}`, children: [
-    /* @__PURE__ */ jsxs7("div", { style: { display: "flex", gap: "8px" }, children: [
-      /* @__PURE__ */ jsx8(
-        "select",
+  const handleSelect = (country) => {
+    onCountryChange(country.code);
+    setOpen(false);
+    setQuery("");
+  };
+  return /* @__PURE__ */ jsxs7("div", { className: `zo-phone-input ${className}`, ref: containerRef, children: [
+    /* @__PURE__ */ jsxs7("div", { style: { display: "flex", gap: "8px", position: "relative" }, children: [
+      /* @__PURE__ */ jsxs7(
+        "button",
         {
-          value: countryCode,
-          onChange: (e) => onCountryChange(e.target.value),
+          type: "button",
+          onClick: () => !disabled && setOpen((o) => !o),
           disabled,
+          "aria-haspopup": "listbox",
+          "aria-expanded": open,
           style: {
-            flex: 1,
+            flex: "0 0 auto",
+            minWidth: "110px",
             backgroundColor: "rgba(255, 255, 255, 0.1)",
             border: "1px solid rgba(255, 255, 255, 0.2)",
             borderRadius: "8px",
@@ -2497,13 +2635,21 @@ var PhoneInput = ({
             fontFamily: "Rubik, system-ui, sans-serif",
             fontSize: "14px",
             cursor: disabled ? "not-allowed" : "pointer",
-            opacity: disabled ? 0.5 : 1
+            opacity: disabled ? 0.5 : 1,
+            textAlign: "left",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "8px"
           },
-          children: COUNTRY_CODES.map((country) => /* @__PURE__ */ jsxs7("option", { value: country.code, style: { backgroundColor: "black" }, children: [
-            country.flag,
-            " +",
-            country.code
-          ] }, country.code))
+          children: [
+            /* @__PURE__ */ jsxs7("span", { children: [
+              selectedCountry.flag,
+              " +",
+              selectedCountry.code
+            ] }),
+            /* @__PURE__ */ jsx8("span", { style: { opacity: 0.6, fontSize: "10px" }, children: "\u25BE" })
+          ]
         }
       ),
       /* @__PURE__ */ jsx8(
@@ -2515,7 +2661,7 @@ var PhoneInput = ({
           placeholder,
           disabled,
           style: {
-            flex: 2,
+            flex: 1,
             backgroundColor: "rgba(255, 255, 255, 0.1)",
             border: error ? "1px solid #ef4444" : "1px solid rgba(255, 255, 255, 0.2)",
             borderRadius: "8px",
@@ -2526,6 +2672,121 @@ var PhoneInput = ({
             cursor: disabled ? "not-allowed" : "text",
             opacity: disabled ? 0.5 : 1
           }
+        }
+      ),
+      open && /* @__PURE__ */ jsxs7(
+        "div",
+        {
+          role: "listbox",
+          style: {
+            position: "absolute",
+            top: "calc(100% + 4px)",
+            left: 0,
+            zIndex: 50,
+            width: "320px",
+            maxHeight: "320px",
+            overflow: "hidden",
+            backgroundColor: "rgba(20, 20, 24, 0.98)",
+            border: "1px solid rgba(255, 255, 255, 0.15)",
+            borderRadius: "8px",
+            boxShadow: "0 8px 24px rgba(0, 0, 0, 0.4)",
+            display: "flex",
+            flexDirection: "column",
+            fontFamily: "Rubik, system-ui, sans-serif"
+          },
+          children: [
+            /* @__PURE__ */ jsx8(
+              "input",
+              {
+                ref: searchRef,
+                type: "text",
+                value: query,
+                onChange: (e) => setQuery(e.target.value),
+                placeholder: "Search country or code...",
+                style: {
+                  margin: "8px",
+                  padding: "8px 12px",
+                  backgroundColor: "rgba(255, 255, 255, 0.08)",
+                  border: "1px solid rgba(255, 255, 255, 0.15)",
+                  borderRadius: "6px",
+                  color: "white",
+                  fontSize: "13px",
+                  outline: "none"
+                }
+              }
+            ),
+            /* @__PURE__ */ jsxs7(
+              "div",
+              {
+                style: {
+                  overflowY: "auto",
+                  maxHeight: "260px"
+                },
+                children: [
+                  filteredCountries.length === 0 && /* @__PURE__ */ jsx8(
+                    "div",
+                    {
+                      style: {
+                        padding: "12px 16px",
+                        color: "rgba(255, 255, 255, 0.5)",
+                        fontSize: "13px"
+                      },
+                      children: "No matches."
+                    }
+                  ),
+                  filteredCountries.map((country) => {
+                    const isSelected = country.country === selectedCountry.country;
+                    return /* @__PURE__ */ jsxs7(
+                      "button",
+                      {
+                        type: "button",
+                        role: "option",
+                        "aria-selected": isSelected,
+                        onClick: () => handleSelect(country),
+                        style: {
+                          width: "100%",
+                          padding: "10px 16px",
+                          background: isSelected ? "rgba(255, 255, 255, 0.08)" : "transparent",
+                          border: "none",
+                          borderBottom: "1px solid rgba(255, 255, 255, 0.05)",
+                          color: "white",
+                          textAlign: "left",
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          fontSize: "14px"
+                        },
+                        onMouseEnter: (e) => {
+                          e.currentTarget.style.background = "rgba(255, 255, 255, 0.06)";
+                        },
+                        onMouseLeave: (e) => {
+                          e.currentTarget.style.background = isSelected ? "rgba(255, 255, 255, 0.08)" : "transparent";
+                        },
+                        children: [
+                          /* @__PURE__ */ jsxs7(
+                            "span",
+                            {
+                              style: { display: "flex", gap: "10px", alignItems: "center" },
+                              children: [
+                                /* @__PURE__ */ jsx8("span", { style: { fontSize: "18px" }, children: country.flag }),
+                                /* @__PURE__ */ jsx8("span", { children: country.name })
+                              ]
+                            }
+                          ),
+                          /* @__PURE__ */ jsxs7("span", { style: { opacity: 0.7, fontSize: "13px" }, children: [
+                            "+",
+                            country.code
+                          ] })
+                        ]
+                      },
+                      country.country
+                    );
+                  })
+                ]
+              }
+            )
+          ]
         }
       )
     ] }),
@@ -2545,7 +2806,7 @@ var PhoneInput = ({
 };
 
 // src/components/OTPInput.tsx
-import { useRef, useEffect as useEffect5 } from "react";
+import { useRef as useRef2, useEffect as useEffect6 } from "react";
 import { jsx as jsx9, jsxs as jsxs8 } from "react/jsx-runtime";
 var OTPInput = ({
   value,
@@ -2557,11 +2818,11 @@ var OTPInput = ({
   autoFocus = true,
   className = ""
 }) => {
-  const inputRefs = useRef([]);
-  useEffect5(() => {
+  const inputRefs = useRef2([]);
+  useEffect6(() => {
     inputRefs.current = inputRefs.current.slice(0, length);
   }, [length]);
-  useEffect5(() => {
+  useEffect6(() => {
     if (autoFocus && inputRefs.current[0]) {
       setTimeout(() => inputRefs.current[0]?.focus(), 100);
     }
@@ -2649,7 +2910,7 @@ var OTPInput = ({
 };
 
 // src/components/ZoAuth.tsx
-import { useState as useState2, useEffect as useEffect6 } from "react";
+import { useState as useState3, useEffect as useEffect7 } from "react";
 import { jsx as jsx10, jsxs as jsxs9 } from "react/jsx-runtime";
 var ZoAuth2 = ({
   onSuccess,
@@ -2660,14 +2921,14 @@ var ZoAuth2 = ({
   showCloseButton = true,
   className = ""
 }) => {
-  const [step, setStep] = useState2("phone");
-  const [countryCode, setCountryCode] = useState2(defaultCountryCode);
-  const [phoneNumber, setPhoneNumber] = useState2("");
-  const [otp, setOtp] = useState2(["", "", "", "", "", ""]);
-  const [isLoading, setIsLoading] = useState2(false);
-  const [error, setError] = useState2(null);
-  const [resendCooldown, setResendCooldown] = useState2(0);
-  useEffect6(() => {
+  const [step, setStep] = useState3("phone");
+  const [countryCode, setCountryCode] = useState3(defaultCountryCode);
+  const [phoneNumber, setPhoneNumber] = useState3("");
+  const [otp, setOtp] = useState3(["", "", "", "", "", ""]);
+  const [isLoading, setIsLoading] = useState3(false);
+  const [error, setError] = useState3(null);
+  const [resendCooldown, setResendCooldown] = useState3(0);
+  useEffect7(() => {
     if (resendCooldown > 0) {
       const timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1e3);
       return () => clearTimeout(timer);
@@ -2924,7 +3185,7 @@ var ZoAuth2 = ({
 };
 
 // src/components/ZoLanding.tsx
-import { useState as useState3 } from "react";
+import { useState as useState4 } from "react";
 import { jsx as jsx11, jsxs as jsxs10 } from "react/jsx-runtime";
 var ZoLanding = ({
   onAuthSuccess,
@@ -2941,7 +3202,7 @@ var ZoLanding = ({
   buttonText = "Tune into Zo World",
   className = ""
 }) => {
-  const [showAuth, setShowAuth] = useState3(false);
+  const [showAuth, setShowAuth] = useState4(false);
   const containerStyle = {
     position: "fixed",
     inset: 0,
@@ -3136,7 +3397,7 @@ var ZoLanding = ({
 };
 
 // src/components/ZoOnboarding.tsx
-import { useState as useState4, useEffect as useEffect7, useRef as useRef2 } from "react";
+import { useState as useState5, useEffect as useEffect8, useRef as useRef3 } from "react";
 import { jsx as jsx12, jsxs as jsxs11 } from "react/jsx-runtime";
 var ZoOnboarding = ({
   onComplete,
@@ -3148,20 +3409,20 @@ var ZoOnboarding = ({
   baeAvatarUrl = "/bae.png",
   className = ""
 }) => {
-  const [step, setStep] = useState4("input");
-  const [nickname, setNickname] = useState4("");
-  const [bodyType, setBodyType] = useState4("bro");
-  const [city, setCity] = useState4("");
-  const [locationEnabled, setLocationEnabled] = useState4(false);
-  const [isLoadingLocation, setIsLoadingLocation] = useState4(false);
-  const [isSaving, setIsSaving] = useState4(false);
-  const [error, setError] = useState4("");
-  const [avatarUrl, setAvatarUrl] = useState4(null);
-  const pollingRef = useRef2(null);
-  const attemptsRef = useRef2(0);
+  const [step, setStep] = useState5("input");
+  const [nickname, setNickname] = useState5("");
+  const [bodyType, setBodyType] = useState5("bro");
+  const [city, setCity] = useState5("");
+  const [locationEnabled, setLocationEnabled] = useState5(false);
+  const [isLoadingLocation, setIsLoadingLocation] = useState5(false);
+  const [isSaving, setIsSaving] = useState5(false);
+  const [error, setError] = useState5("");
+  const [avatarUrl, setAvatarUrl] = useState5(null);
+  const pollingRef = useRef3(null);
+  const attemptsRef = useRef3(0);
   const isNicknameValid = nickname.length >= 4 && nickname.length <= 16 && /^[a-z0-9]*$/.test(nickname);
   const canSubmit = isNicknameValid && locationEnabled && bodyType && !isSaving;
-  useEffect7(() => {
+  useEffect8(() => {
     return () => {
       if (pollingRef.current) clearTimeout(pollingRef.current);
     };
@@ -3584,12 +3845,12 @@ var ZoOnboarding = ({
 };
 
 // src/hooks/useAuth.ts
-import { useState as useState5, useCallback } from "react";
+import { useState as useState6, useCallback } from "react";
 function useAuth() {
   const { sdk, user, isAuthenticated, isLoading, sendOTP, verifyOTP, logout } = useZoPassport();
-  const [otpSent, setOtpSent] = useState5(false);
-  const [phoneNumber, setPhoneNumber] = useState5("");
-  const [countryCode, setCountryCode] = useState5("91");
+  const [otpSent, setOtpSent] = useState6(false);
+  const [phoneNumber, setPhoneNumber] = useState6("");
+  const [countryCode, setCountryCode] = useState6("91");
   const handleSendOTP = useCallback(async (code, phone) => {
     setCountryCode(code);
     setPhoneNumber(phone);
@@ -3625,11 +3886,11 @@ function useAuth() {
 }
 
 // src/hooks/useProfile.ts
-import { useState as useState6, useCallback as useCallback2 } from "react";
+import { useState as useState7, useCallback as useCallback2 } from "react";
 function useProfile() {
   const { sdk, user, isAuthenticated, refreshProfile } = useZoPassport();
-  const [isLoading, setIsLoading] = useState6(false);
-  const [error, setError] = useState6(null);
+  const [isLoading, setIsLoading] = useState7(false);
+  const [error, setError] = useState7(null);
   const completion = user ? calculateCompletion(user) : { done: 0, total: 10, percentage: 0 };
   const isFounder = user?.membership === "founder";
   const updateProfile = useCallback2(async (updates) => {
@@ -3685,12 +3946,12 @@ function calculateCompletion(user) {
 }
 
 // src/hooks/useAvatar.ts
-import { useState as useState7, useCallback as useCallback3 } from "react";
+import { useState as useState8, useCallback as useCallback3 } from "react";
 function useAvatar() {
   const { sdk, user, refreshProfile } = useZoPassport();
-  const [isGenerating, setIsGenerating] = useState7(false);
-  const [progress, setProgress] = useState7(null);
-  const [error, setError] = useState7(null);
+  const [isGenerating, setIsGenerating] = useState8(false);
+  const [progress, setProgress] = useState8(null);
+  const [error, setError] = useState8(null);
   const avatarUrl = user?.avatar?.image || user?.pfp_image;
   const avatarStatus = user?.avatar?.status || "completed";
   const generateAvatar = useCallback3(async (bodyType) => {
@@ -3725,11 +3986,11 @@ function useAvatar() {
 import { useCallback as useCallback6 } from "react";
 
 // src/hooks/useWalletBalance.ts
-import { useState as useState8, useEffect as useEffect9, useCallback as useCallback4 } from "react";
+import { useState as useState9, useEffect as useEffect10, useCallback as useCallback4 } from "react";
 var useWalletBalance = (apiClient, options) => {
-  const [balance, setBalance] = useState8(0);
-  const [isLoading, setIsLoading] = useState8(true);
-  const [error, setError] = useState8(null);
+  const [balance, setBalance] = useState9(0);
+  const [isLoading, setIsLoading] = useState9(true);
+  const [error, setError] = useState9(null);
   const fetchBalance = useCallback4(async () => {
     if (!apiClient) {
       setError(new Error("API client not provided"));
@@ -3749,7 +4010,7 @@ var useWalletBalance = (apiClient, options) => {
       setIsLoading(false);
     }
   }, [apiClient]);
-  useEffect9(() => {
+  useEffect10(() => {
     fetchBalance();
     if (options?.autoRefetch) {
       const interval = setInterval(fetchBalance, options.refetchInterval || 3e4);
@@ -3765,12 +4026,12 @@ var useWalletBalance = (apiClient, options) => {
 };
 
 // src/hooks/useTransactions.ts
-import { useState as useState9, useEffect as useEffect10, useCallback as useCallback5 } from "react";
+import { useState as useState10, useEffect as useEffect11, useCallback as useCallback5 } from "react";
 var useTransactions = (apiClient, options) => {
-  const [transactions, setTransactions] = useState9([]);
-  const [isLoading, setIsLoading] = useState9(true);
-  const [error, setError] = useState9(null);
-  const [hasMore, setHasMore] = useState9(false);
+  const [transactions, setTransactions] = useState10([]);
+  const [isLoading, setIsLoading] = useState10(true);
+  const [error, setError] = useState10(null);
+  const [hasMore, setHasMore] = useState10(false);
   const fetchTransactions = useCallback5(async () => {
     if (!apiClient) {
       setError(new Error("API client not provided"));
@@ -3798,7 +4059,7 @@ var useTransactions = (apiClient, options) => {
   const loadMore = useCallback5(async () => {
     if (!hasMore || isLoading) return;
   }, [hasMore, isLoading]);
-  useEffect10(() => {
+  useEffect11(() => {
     fetchTransactions();
     if (options?.autoRefetch) {
       const interval = setInterval(fetchTransactions, 6e4);
@@ -3854,11 +4115,11 @@ function ZoPassportProvider({
   baseUrl,
   autoRefresh = true
 }) {
-  const [sdk, setSdk] = useState10(null);
-  const [user, setUser] = useState10(null);
-  const [isAuthenticated, setIsAuthenticated] = useState10(false);
-  const [isLoading, setIsLoading] = useState10(true);
-  useEffect11(() => {
+  const [sdk, setSdk] = useState11(null);
+  const [user, setUser] = useState11(null);
+  const [isAuthenticated, setIsAuthenticated] = useState11(false);
+  const [isLoading, setIsLoading] = useState11(true);
+  useEffect12(() => {
     const passportSdk = new ZoPassportSDK({
       clientKey,
       baseUrl,

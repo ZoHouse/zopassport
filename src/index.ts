@@ -26,7 +26,16 @@ export {
 } from './lib/utils/storage';
 
 // Phone utilities
-export { formatPhoneNumber, parsePhoneNumber, COUNTRY_CODES } from './lib/utils/phone';
+export {
+  formatPhoneNumber,
+  parsePhoneNumber,
+  isValidPhoneNumber,
+  formatAsYouType,
+  getCountryByDialCode,
+  getCountryByIso,
+  COUNTRY_CODES,
+  type Country,
+} from './lib/utils/phone';
 
 // Wallet utilities
 export * from './lib/utils/wallet';
