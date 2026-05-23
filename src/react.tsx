@@ -3,6 +3,7 @@
 
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { ZoPassportSDK, ZoPassportSDKConfig } from './ZoPassportSDK';
+import { executeRecaptcha } from './lib/utils/recaptcha';
 import type { ZoUser } from './lib/types';
 
 // Re-export components
@@ -40,6 +41,14 @@ export interface ZoPassportProviderProps {
   clientKey: string;
   baseUrl?: string;
   autoRefresh?: boolean;
+  /**
+   * Google reCAPTCHA v3 site key. When set, the Provider's `sendOTP` wrapper
+   * automatically loads grecaptcha, runs `execute(siteKey, { action: 'request_otp' })`,
+   * and forwards the token to the backend. Required for the built-in
+   * `<ZoAuth>` / `<ZoLanding>` components to work, since the backend now
+   * requires a captcha token on every OTP request.
+   */
+  recaptchaSiteKey?: string;
 }
 
 export function ZoPassportProvider({
@@ -47,6 +56,7 @@ export function ZoPassportProvider({
   clientKey,
   baseUrl,
   autoRefresh = true,
+  recaptchaSiteKey,
 }: ZoPassportProviderProps) {
   const [sdk, setSdk] = useState<ZoPassportSDK | null>(null);
   const [user, setUser] = useState<ZoUser | null>(null);
@@ -91,10 +101,23 @@ export function ZoPassportProvider({
     };
   }, [clientKey, baseUrl, autoRefresh]);
 
-  // Send OTP
+  // Send OTP. The backend requires a Google reCAPTCHA v3 token; if
+  // `recaptchaSiteKey` was passed to the Provider we resolve it here so
+  // callers (and built-in components) don't have to.
   const sendOTP = async (countryCode: string, phoneNumber: string) => {
     if (!sdk) return { success: false, message: 'SDK not initialized' };
-    return sdk.auth.sendOTP(countryCode, phoneNumber);
+    if (!recaptchaSiteKey) {
+      return {
+        success: false,
+        message: 'ZoPassportProvider: recaptchaSiteKey is required for OTP. Pass it as a prop or call sdk.auth.sendOTP(cc, phone, captchaToken) directly.',
+      };
+    }
+    try {
+      const captchaToken = await executeRecaptcha(recaptchaSiteKey, 'request_otp');
+      return sdk.auth.sendOTP(countryCode, phoneNumber, captchaToken);
+    } catch (err: any) {
+      return { success: false, message: err?.message || 'reCAPTCHA failed' };
+    }
   };
 
   // Verify OTP

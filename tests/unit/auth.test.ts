@@ -30,7 +30,7 @@ describe('ZoAuth', () => {
         message: 'OTP sent successfully',
       });
 
-      const result = await auth.sendOTP('91', '9876543210');
+      const result = await auth.sendOTP('91', '9876543210', 'test-captcha-token');
       expect(result.success).toBe(true);
       expect(result.message).toBe('OTP sent successfully');
     });
@@ -41,10 +41,11 @@ describe('ZoAuth', () => {
         expect(data.mobile_country_code).toBe('91');
         expect(data.mobile_number).toBe('9876543210');
         expect(data.message_channel).toBe('');
+        expect(data.captcha_response_token).toBe('test-captcha-token');
         return [200, { message: 'OTP sent' }];
       });
 
-      await auth.sendOTP('91', '9876543210');
+      await auth.sendOTP('91', '9876543210', 'test-captcha-token');
     });
 
     it('should return failure on server error', async () => {
@@ -52,7 +53,7 @@ describe('ZoAuth', () => {
         detail: 'Internal server error',
       });
 
-      const result = await auth.sendOTP('91', '9876543210');
+      const result = await auth.sendOTP('91', '9876543210', 'test-captcha-token');
       expect(result.success).toBe(false);
       expect(result.message).toBe('Internal server error');
     });
@@ -60,7 +61,7 @@ describe('ZoAuth', () => {
     it('should return failure on network error', async () => {
       mock.onPost('/api/v1/auth/login/mobile/otp/').networkError();
 
-      const result = await auth.sendOTP('91', '9876543210');
+      const result = await auth.sendOTP('91', '9876543210', 'test-captcha-token');
       expect(result.success).toBe(false);
       expect(result.message).toBeTruthy();
     });
@@ -70,7 +71,7 @@ describe('ZoAuth', () => {
         message: 'Invalid phone number',
       });
 
-      const result = await auth.sendOTP('91', '123');
+      const result = await auth.sendOTP('91', '123', 'test-captcha-token');
       expect(result.success).toBe(false);
       expect(result.message).toBe('Invalid phone number');
     });
@@ -80,7 +81,7 @@ describe('ZoAuth', () => {
         error: 'Rate limit exceeded',
       });
 
-      const result = await auth.sendOTP('91', '9876543210');
+      const result = await auth.sendOTP('91', '9876543210', 'test-captcha-token');
       expect(result.success).toBe(false);
       expect(result.message).toBe('Rate limit exceeded');
     });

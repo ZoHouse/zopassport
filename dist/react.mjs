@@ -212,14 +212,20 @@ var ZoAuth = class {
   /**
    * Send OTP to phone number
    * Step 1 of ZO phone authentication
+   *
+   * @param captchaToken Google reCAPTCHA v3 response token. Required by the
+   *   backend. On web, use the `executeRecaptcha()` helper or call
+   *   `grecaptcha.execute(siteKey, { action: 'request_otp' })` yourself.
+   *   On React Native, run your platform's captcha SDK and pass the result.
    */
-  async sendOTP(countryCode, phoneNumber) {
+  async sendOTP(countryCode, phoneNumber, captchaToken) {
     try {
       const payload = {
         mobile_country_code: countryCode,
         mobile_number: phoneNumber,
-        message_channel: ""
+        message_channel: "",
         // Empty string as per ZO API spec
+        captcha_response_token: captchaToken
       };
       const response = await this.client.axiosInstance.post(
         "/api/v1/auth/login/mobile/otp/",
@@ -1041,6 +1047,45 @@ var ZoPassportSDK = class {
     this.stopAutoRefresh();
   }
 };
+
+// src/lib/utils/recaptcha.ts
+var SCRIPT_ATTR = "data-zopassport-recaptcha";
+function loadScript(siteKey) {
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector(`script[${SCRIPT_ATTR}]`);
+    if (existing) {
+      if (window.grecaptcha) {
+        resolve();
+        return;
+      }
+      existing.addEventListener("load", () => resolve());
+      existing.addEventListener("error", () => reject(new Error("Failed to load reCAPTCHA script")));
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = `https://www.google.com/recaptcha/api.js?render=${encodeURIComponent(siteKey)}`;
+    script.async = true;
+    script.defer = true;
+    script.setAttribute(SCRIPT_ATTR, "");
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Failed to load reCAPTCHA script"));
+    document.head.appendChild(script);
+  });
+}
+async function executeRecaptcha(siteKey, action = "request_otp") {
+  if (typeof window === "undefined" || typeof document === "undefined") {
+    throw new Error("executeRecaptcha is web-only. On React Native, pass a captchaToken to sdk.auth.sendOTP directly.");
+  }
+  if (!siteKey) {
+    throw new Error("executeRecaptcha: siteKey is required");
+  }
+  await loadScript(siteKey);
+  if (!window.grecaptcha) {
+    throw new Error("reCAPTCHA loaded but window.grecaptcha is undefined");
+  }
+  await new Promise((resolve) => window.grecaptcha.ready(() => resolve()));
+  return window.grecaptcha.execute(siteKey, { action });
+}
 
 // src/components/ZoProgressRing.tsx
 import { jsx, jsxs } from "react/jsx-runtime";
@@ -3852,7 +3897,8 @@ function ZoPassportProvider({
   children,
   clientKey,
   baseUrl,
-  autoRefresh = true
+  autoRefresh = true,
+  recaptchaSiteKey
 }) {
   const [sdk, setSdk] = useState10(null);
   const [user, setUser] = useState10(null);
@@ -3889,7 +3935,18 @@ function ZoPassportProvider({
   }, [clientKey, baseUrl, autoRefresh]);
   const sendOTP = async (countryCode, phoneNumber) => {
     if (!sdk) return { success: false, message: "SDK not initialized" };
-    return sdk.auth.sendOTP(countryCode, phoneNumber);
+    if (!recaptchaSiteKey) {
+      return {
+        success: false,
+        message: "ZoPassportProvider: recaptchaSiteKey is required for OTP. Pass it as a prop or call sdk.auth.sendOTP(cc, phone, captchaToken) directly."
+      };
+    }
+    try {
+      const captchaToken = await executeRecaptcha(recaptchaSiteKey, "request_otp");
+      return sdk.auth.sendOTP(countryCode, phoneNumber, captchaToken);
+    } catch (err) {
+      return { success: false, message: err?.message || "reCAPTCHA failed" };
+    }
   };
   const verifyOTP = async (countryCode, phoneNumber, otp) => {
     if (!sdk) return { success: false, error: "SDK not initialized" };

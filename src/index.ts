@@ -28,6 +28,9 @@ export {
 // Phone utilities
 export { formatPhoneNumber, parsePhoneNumber, COUNTRY_CODES } from './lib/utils/phone';
 
+// reCAPTCHA helper (web only)
+export { executeRecaptcha } from './lib/utils/recaptcha';
+
 // Wallet utilities
 export * from './lib/utils/wallet';
 

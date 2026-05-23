@@ -49,7 +49,7 @@ npm install && npm run dev
 ## Quick Start
 
 ```ts
-import { ZoPassportSDK } from 'zopassport';
+import { ZoPassportSDK, executeRecaptcha } from 'zopassport';
 
 const sdk = new ZoPassportSDK({
   clientKey: 'your-client-key',   // required
@@ -59,8 +59,10 @@ const sdk = new ZoPassportSDK({
 // Wait for any existing session to load from storage
 await sdk.ready();
 
-// Step 1 — Send OTP
-await sdk.auth.sendOTP('91', '9876543210');
+// Step 1: resolve reCAPTCHA v3 token, then send OTP.
+// Backend requires a captcha_response_token on every OTP request.
+const captchaToken = await executeRecaptcha(RECAPTCHA_SITE_KEY, 'request_otp');
+await sdk.auth.sendOTP('91', '9876543210', captchaToken);
 
 // Step 2 — Verify OTP & log in
 const { success, user, error } = await sdk.loginWithPhone('91', '9876543210', '123456');
@@ -69,6 +71,8 @@ if (success) {
   console.log('Welcome', user.first_name);
 }
 ```
+
+> **reCAPTCHA is required.** The Zo backend rejects OTP requests without a Google reCAPTCHA v3 response token. Web apps can use the bundled `executeRecaptcha()` helper, or pass a token from their own grecaptcha integration. React Native apps run their platform's captcha SDK and pass the token directly to `sdk.auth.sendOTP(...)`.
 
 ---
 
@@ -97,6 +101,14 @@ if (success) {
 
 #### `sdk.ready(): Promise<void>`
 Wait for session restoration from storage. Call before checking `isAuthenticated`.
+
+#### `sdk.auth.sendOTP(countryCode, phoneNumber, captchaToken): Promise<Result>`
+Send an OTP to the given phone number. `captchaToken` is a Google reCAPTCHA v3 response token, required by the backend on every request.
+
+```ts
+const token = await executeRecaptcha(RECAPTCHA_SITE_KEY, 'request_otp');
+await sdk.auth.sendOTP('91', '9876543210', token);
+```
 
 #### `sdk.loginWithPhone(countryCode, phoneNumber, otp): Promise<Result>`
 Full OTP verification + session save + wallet setup.
@@ -163,12 +175,17 @@ import { ZoPassportProvider, useZoPassport } from 'zopassport/react';
 
 function App() {
   return (
-    <ZoPassportProvider clientKey="your-client-key">
+    <ZoPassportProvider
+      clientKey="your-client-key"
+      recaptchaSiteKey={process.env.NEXT_PUBLIC_RECAPTCHA_KEY}
+    >
       <YourApp />
     </ZoPassportProvider>
   );
 }
 ```
+
+When `recaptchaSiteKey` is set, the Provider's `sendOTP` wrapper automatically loads the grecaptcha v3 script, runs the challenge, and forwards the token. Built-in `<ZoAuth>` and `<ZoLanding>` components work without any further changes.
 
 ### `useZoPassport()` Hook
 

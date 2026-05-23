@@ -76,6 +76,10 @@ export interface ZoAuthOTPRequest {
   mobile_country_code: string;
   mobile_number: string;
   message_channel: string;
+  // Google reCAPTCHA v3 token. Required by backend; obtain via
+  // grecaptcha.execute(siteKey, { action: 'request_otp' }) or the
+  // executeRecaptcha() helper exported from this package.
+  captcha_response_token: string;
 }
 
 export interface ZoAuthOTPVerifyRequest {

@@ -3,4 +3,5 @@
 
 export * from './storage';
 export * from './phone';
+export * from './recaptcha';
 

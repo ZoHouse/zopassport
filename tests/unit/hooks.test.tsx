@@ -9,10 +9,16 @@ import { useProfile } from '../../src/hooks/useProfile';
 import { useAvatar } from '../../src/hooks/useAvatar';
 import { createMockAuthResponse, createMockUser } from '../helpers';
 
+// Stub the reCAPTCHA helper so Provider's sendOTP wrapper resolves to a
+// known token in tests without loading the real grecaptcha script.
+vi.mock('../../src/lib/utils/recaptcha', () => ({
+  executeRecaptcha: vi.fn(async () => 'test-captcha-token'),
+}));
+
 function createWrapper(props: { clientKey: string }) {
   return function Wrapper({ children }: { children: React.ReactNode }) {
     return (
-      <ZoPassportProvider clientKey={props.clientKey} autoRefresh={false}>
+      <ZoPassportProvider clientKey={props.clientKey} recaptchaSiteKey="test-site-key" autoRefresh={false}>
         {children}
       </ZoPassportProvider>
     );

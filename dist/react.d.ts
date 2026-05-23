@@ -189,6 +189,7 @@ interface ZoAuthOTPRequest {
     mobile_country_code: string;
     mobile_number: string;
     message_channel: string;
+    captcha_response_token: string;
 }
 interface ZoAuthOTPVerifyRequest {
     mobile_country_code: string;
@@ -247,8 +248,13 @@ declare class ZoAuth$1 {
     /**
      * Send OTP to phone number
      * Step 1 of ZO phone authentication
+     *
+     * @param captchaToken Google reCAPTCHA v3 response token. Required by the
+     *   backend. On web, use the `executeRecaptcha()` helper or call
+     *   `grecaptcha.execute(siteKey, { action: 'request_otp' })` yourself.
+     *   On React Native, run your platform's captcha SDK and pass the result.
      */
-    sendOTP(countryCode: string, phoneNumber: string): Promise<{
+    sendOTP(countryCode: string, phoneNumber: string, captchaToken: string): Promise<{
         success: boolean;
         message: string;
     }>;
@@ -948,8 +954,16 @@ interface ZoPassportProviderProps {
     clientKey: string;
     baseUrl?: string;
     autoRefresh?: boolean;
+    /**
+     * Google reCAPTCHA v3 site key. When set, the Provider's `sendOTP` wrapper
+     * automatically loads grecaptcha, runs `execute(siteKey, { action: 'request_otp' })`,
+     * and forwards the token to the backend. Required for the built-in
+     * `<ZoAuth>` / `<ZoLanding>` components to work, since the backend now
+     * requires a captcha token on every OTP request.
+     */
+    recaptchaSiteKey?: string;
 }
-declare function ZoPassportProvider({ children, clientKey, baseUrl, autoRefresh, }: ZoPassportProviderProps): react_jsx_runtime.JSX.Element;
+declare function ZoPassportProvider({ children, clientKey, baseUrl, autoRefresh, recaptchaSiteKey, }: ZoPassportProviderProps): react_jsx_runtime.JSX.Element;
 declare function useZoPassport(): ZoPassportContextValue;
 
 export { type BalanceResponse, type FormattedTransaction, FounderBadge, type MovingShineProps, OTPInput, type OTPInputProps, PhoneInput, type PhoneInputProps, type Transaction, type TransactionItemProps, type TransactionListProps, type TransactionsResponse, type WalletBalance, WalletCardWeb as WalletCard, type WalletCardProps, WalletFullPage, type WalletScreenProps, type WalletUser, ZoAuth, type ZoAuthOTPRequest, type ZoAuthOTPVerifyRequest, type ZoAuthProps, type ZoAuthResponse, ZoAvatar, type ZoAvatarGenerateRequest, type ZoAvatarGenerateResponse, type ZoAvatarProps, type ZoAvatarStatusResponse, type ZoErrorResponse, ZoLanding, type ZoLandingProps, ZoOnboarding, type ZoOnboardingProps, ZoPassportCard, type ZoPassportCardProps, type ZoPassportCompletion, ZoPassportPage, type ZoPassportPageProps, type ZoPassportProfile, ZoPassportProvider, type ZoPassportProviderProps, ZoPassportSDK, type ZoProfileResponse, type ZoProfileUpdatePayload, ZoProgressRing, type ZoProgressRingProps, type ZoTokenBalanceResponse, type ZoTokenRefreshResponse, type ZoUser, type ZoWallet$1 as ZoWallet, useAuth, useAvatar, useProfile, useTransactions, useWallet, useWalletBalance, useZoPassport };
