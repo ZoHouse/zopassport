@@ -42,7 +42,7 @@ describe('E2E: Complete User Journey', () => {
       message: 'OTP sent to +91 9876543210',
     });
 
-    const otpResult = await sdk.auth.sendOTP('91', '9876543210');
+    const otpResult = await sdk.auth.sendOTP('91', '9876543210', 'test-captcha-token');
     expect(otpResult.success).toBe(true);
 
     // ============ Step 2: Verify OTP & Login ============
@@ -225,7 +225,7 @@ describe('E2E: Complete User Journey', () => {
   it('should handle network failure during OTP send gracefully', async () => {
     mock.onPost('/api/v1/auth/login/mobile/otp/').networkError();
 
-    const result = await sdk.auth.sendOTP('91', '9876543210');
+    const result = await sdk.auth.sendOTP('91', '9876543210', 'test-captcha-token');
     expect(result.success).toBe(false);
     expect(result.message).toBeTruthy();
   });

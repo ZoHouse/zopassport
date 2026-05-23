@@ -228,6 +228,7 @@ interface ZoAuthOTPRequest {
     mobile_country_code: string;
     mobile_number: string;
     message_channel: string;
+    captcha_response_token: string;
 }
 interface ZoAuthOTPVerifyRequest {
     mobile_country_code: string;
@@ -286,8 +287,13 @@ declare class ZoAuth {
     /**
      * Send OTP to phone number
      * Step 1 of ZO phone authentication
+     *
+     * @param captchaToken Google reCAPTCHA v3 response token. Required by the
+     *   backend. On web, use the `executeRecaptcha()` helper or call
+     *   `grecaptcha.execute(siteKey, { action: 'request_otp' })` yourself.
+     *   On React Native, run your platform's captcha SDK and pass the result.
      */
-    sendOTP(countryCode: string, phoneNumber: string): Promise<{
+    sendOTP(countryCode: string, phoneNumber: string, captchaToken: string): Promise<{
         success: boolean;
         message: string;
     }>;
@@ -528,6 +534,29 @@ declare function formatPhoneNumber(phone: string): string;
  * Removes all non-digit characters
  */
 declare function parsePhoneNumber(phone: string): string;
+
+declare global {
+    interface Window {
+        grecaptcha?: {
+            ready: (cb: () => void) => void;
+            execute: (siteKey: string, options: {
+                action: string;
+            }) => Promise<string>;
+        };
+    }
+}
+/**
+ * Execute a Google reCAPTCHA v3 challenge and return the response token.
+ *
+ * Loads the grecaptcha script on first call, then invokes
+ * `grecaptcha.execute(siteKey, { action })`. Pass the returned token to
+ * `sdk.auth.sendOTP(cc, phone, token)`.
+ *
+ * Web only. Throws if called in an environment without `window` (e.g. React
+ * Native, SSR). On RN, run your platform's captcha SDK and pass the token to
+ * `sendOTP` directly.
+ */
+declare function executeRecaptcha(siteKey: string, action?: string): Promise<string>;
 
 /**
  * Format balance number with commas
@@ -979,4 +1008,4 @@ declare const CULTURES: readonly [{
 }];
 type CultureId = typeof CULTURES[number]['id'];
 
-export { ASSETS, AsyncStorageAdapter, type BalanceResponse, COUNTRY_CODES, CULTURES, CULTURE_STICKERS, type CultureId, type FormattedTransaction, LocalStorageAdapter, MemoryStorageAdapter, type MovingShineProps, STORAGE_KEYS, type StorageAdapter, type Transaction, type TransactionItemProps, type TransactionListProps, type TransactionsResponse, type WalletBalance, type WalletCardProps, type WalletScreenProps, type WalletUser, ZoApiClient, ZoAuth, ZoAuthError, type ZoAuthOTPRequest, type ZoAuthOTPVerifyRequest, type ZoAuthResponse, ZoAvatar, type ZoAvatarGenerateRequest, type ZoAvatarGenerateResponse, type ZoAvatarStatusResponse, ZoConfigError, type ZoErrorResponse, ZoNetworkError, ZoNotAuthenticatedError, type ZoPassportCompletion, type ZoPassportConfig, type ZoPassportProfile, ZoPassportSDK, ZoProfile, type ZoProfileResponse, type ZoProfileUpdatePayload, ZoSDKError, type ZoTokenBalanceResponse, type ZoTokenRefreshResponse, type ZoUser, ZoValidationError, ZoWallet, formatBalance, formatBalanceShort, formatNickname, formatPhoneNumber, formatTransactionAmount, formatWalletAddress, getTransactionColor, logger, parsePhoneNumber };
+export { ASSETS, AsyncStorageAdapter, type BalanceResponse, COUNTRY_CODES, CULTURES, CULTURE_STICKERS, type CultureId, type FormattedTransaction, LocalStorageAdapter, MemoryStorageAdapter, type MovingShineProps, STORAGE_KEYS, type StorageAdapter, type Transaction, type TransactionItemProps, type TransactionListProps, type TransactionsResponse, type WalletBalance, type WalletCardProps, type WalletScreenProps, type WalletUser, ZoApiClient, ZoAuth, ZoAuthError, type ZoAuthOTPRequest, type ZoAuthOTPVerifyRequest, type ZoAuthResponse, ZoAvatar, type ZoAvatarGenerateRequest, type ZoAvatarGenerateResponse, type ZoAvatarStatusResponse, ZoConfigError, type ZoErrorResponse, ZoNetworkError, ZoNotAuthenticatedError, type ZoPassportCompletion, type ZoPassportConfig, type ZoPassportProfile, ZoPassportSDK, ZoProfile, type ZoProfileResponse, type ZoProfileUpdatePayload, ZoSDKError, type ZoTokenBalanceResponse, type ZoTokenRefreshResponse, type ZoUser, ZoValidationError, ZoWallet, executeRecaptcha, formatBalance, formatBalanceShort, formatNickname, formatPhoneNumber, formatTransactionAmount, formatWalletAddress, getTransactionColor, logger, parsePhoneNumber };

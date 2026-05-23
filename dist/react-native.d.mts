@@ -252,6 +252,7 @@ interface ZoAuthOTPRequest {
     mobile_country_code: string;
     mobile_number: string;
     message_channel: string;
+    captcha_response_token: string;
 }
 interface ZoAuthOTPVerifyRequest {
     mobile_country_code: string;
@@ -310,8 +311,13 @@ declare class ZoAuth {
     /**
      * Send OTP to phone number
      * Step 1 of ZO phone authentication
+     *
+     * @param captchaToken Google reCAPTCHA v3 response token. Required by the
+     *   backend. On web, use the `executeRecaptcha()` helper or call
+     *   `grecaptcha.execute(siteKey, { action: 'request_otp' })` yourself.
+     *   On React Native, run your platform's captcha SDK and pass the result.
      */
-    sendOTP(countryCode: string, phoneNumber: string): Promise<{
+    sendOTP(countryCode: string, phoneNumber: string, captchaToken: string): Promise<{
         success: boolean;
         message: string;
     }>;
