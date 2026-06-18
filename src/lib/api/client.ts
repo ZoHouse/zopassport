@@ -47,7 +47,7 @@ export class ZoApiClient {
 
     this.client = axios.create({
       baseURL: config.baseUrl || 'https://api.io.zo.xyz',
-      timeout: config.timeout || 10000,
+      timeout: config.timeout || 30000,
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
